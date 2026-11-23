@@ -7,10 +7,16 @@ serial only if a --port is explicitly given, socket:// for WiFi adapters.
 """
 
 import glob
+import re
 
 from mycar import config
 from mycar.elm import ElmError
 from mycar.elm_ble import ElmBLE, scan_ble
+
+# bare macOS BLE UUID (CoreBluetooth style) as --port, without the ble: prefix
+BLE_UUID_RE = re.compile(
+    r"^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$"
+)
 
 
 def list_ports() -> list[str]:
@@ -24,10 +30,11 @@ def list_ports() -> list[str]:
 def connect(port: str | None = None, simulate: bool = False, sim_time_scale: float = 1.0, log=print):
     """Return a connection object (ElmBLE / RawELM / SimConnection).
 
-    - port None      -> auto-detect: BLE scan first, then serial candidates
+    - port None      -> auto-detect: BLE address from .env, BLE scan, then serial
     - port "/dev/cu.*"              -> raw serial (USB ELM327)
     - port "socket://<ip>:35000"    -> WiFi ELM327
     - port "ble:<address>"          -> explicit BLE address
+    - port "<bare BLE UUID>"        -> same as ble:<address>
     - simulate=True  -> offline simulator (no car needed); sim_time_scale
                         speeds up simulated dynamics (60.0 = 1 real s = 1 sim min)
     """
@@ -41,6 +48,9 @@ def connect(port: str | None = None, simulate: bool = False, sim_time_scale: flo
 
     if port and port.startswith("ble:"):
         return ElmBLE(port[4:], log=log)
+
+    if port and BLE_UUID_RE.match(port):
+        return ElmBLE(port, log=log)
 
     if port is None:
         # --- 0) known dongle address from .env (fast + deterministic) -----

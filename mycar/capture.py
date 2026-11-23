@@ -17,7 +17,12 @@ from mycar.elm import ElmError
 from mycar import config, sensors, toyota
 
 MAX_CONSECUTIVE_FAILURES = 6  # failed queries in a row before giving up
-SERIAL_ERRORS = (OSError, serial.SerialException)
+
+try:  # bleak errors are NOT OSError — must be caught for soft reconnects
+    from bleak.exc import BleakError
+    SERIAL_ERRORS = (OSError, serial.SerialException, BleakError)
+except ImportError:  # bleak missing -> serial-only install
+    SERIAL_ERRORS = (OSError, serial.SerialException)
 
 
 def _num(value):
@@ -58,8 +63,13 @@ def _poll_multi(conn, groups) -> dict[str, list[int]] | None:
 
 def capture(port: str | None, simulate: bool, max_minutes: float, sim_time_scale: float = 1.0,
             dashboard: bool = True, dashboard_port: int = config.DASHBOARD_PORT,
-            multi: bool = True, log=print) -> str:
-    """Run one cold-start session. Returns path of the written CSV."""
+            multi: bool = True, hold: bool = False, log=print) -> str:
+    """Run one cold-start session. Returns path of the written CSV.
+
+    hold=False (default): the process exits when the session ends (the
+    dashboard dies with it — run analyze right after). hold=True: the
+    dashboard stays live until its 1 h TTL; the console blocks meanwhile.
+    """
     from mycar import connection
 
     dash = None
@@ -172,7 +182,8 @@ def capture(port: str | None, simulate: bool, max_minutes: float, sim_time_scale
                 cvt_val, cvt_raw = (None, None)
                 try:
                     cvt_val, cvt_raw = conn.query_cvt_and_raw()
-                    fail_streak = fail_streak + 1 if cvt_val is None else 0
+                    # NOTE: no fail_streak here — cvt_temp is experimental and
+                    # legitimately silent on adapters/ECUs without 01B4/21D9/2182
                 except SERIAL_ERRORS as e:
                     log(f"  ! serial error on cvt: {e}")
                     fail_streak += 1
@@ -240,5 +251,7 @@ def capture(port: str | None, simulate: bool, max_minutes: float, sim_time_scale
         conn.close()
         if state:
             state.set_meta(finished=True, finished_at=datetime.now(timezone.utc).isoformat())
-        if dash:
+        if dash and hold:
             dash.wait(log=log)  # page stays live until the 1 h TTL frees the port
+        elif dash:
+            log("Dashboard closes with the process (use --hold to keep it live up to 1 h).")

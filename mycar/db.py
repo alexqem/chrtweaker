@@ -17,7 +17,7 @@ from mycar import config, sensors
 
 DB_PATH = config.LOGS_DIR / "chr.db"
 
-TEXT_COLUMNS = {"cvt_raw"}  # non-numeric sample columns
+TEXT_COLUMNS = sensors.TEXT_COLUMNS  # single source: sensors.COLUMNS typing
 
 
 def _samples_ddl() -> str:
@@ -134,12 +134,15 @@ def summary() -> str:
         for sid, csv_file, started_at, mode, start_c, warm_s, rows, aborted in sessions:
             date = (started_at or "")[:16].replace("T", " ")
             warm = f"{warm_s/60:.1f} min" if warm_s is not None else "—"
-            idle = conn.execute(
-                "SELECT AVG(rpm), AVG(ltft) FROM samples "
-                "WHERE session_id=? AND ts >= (SELECT COALESCE(MAX(warm_at_s),0) FROM sessions WHERE id=?) "
-                "AND rpm IS NOT NULL",
-                (sid, sid),
-            ).fetchone()
+            # idle stats are post-warm ONLY: without warm_at_s the cold fast-idle
+            # (1200+ rpm) would poison the long-term trend
+            idle = None
+            if warm_s is not None:
+                idle = conn.execute(
+                    "SELECT AVG(rpm), AVG(ltft) FROM samples "
+                    "WHERE session_id=? AND ts >= ? AND rpm IS NOT NULL",
+                    (sid, warm_s),
+                ).fetchone()
             rpm_s = f"{idle[0]:.0f}" if idle and idle[0] else "—"
             ltft_s = f"{idle[1]:+.1f}%" if idle and idle[1] is not None else "—"
             flag = " ⚠aborted" if aborted else ""

@@ -22,16 +22,23 @@ PAGE = Path(__file__).with_name("dashboard.html").read_text(encoding="utf-8")
 
 
 class State:
-    """Thread-safe buffer between capture and the websocket."""
+    """Thread-safe buffer between capture and the websocket.
+
+    Rows carry a monotonically increasing `seq` so websocket clients can
+    resume reliably even after old rows are evicted from the deque (an
+    index-based rows[sent:] slice would silently stop delivering at maxlen).
+    """
 
     def __init__(self, maxlen: int = 4000):
         self._lock = threading.Lock()
         self._rows: deque = deque(maxlen=maxlen)
         self._meta: dict = {}
+        self._seq = 0
 
     def push(self, row: dict):
         with self._lock:
-            self._rows.append(row)
+            self._seq += 1
+            self._rows.append({**row, "seq": self._seq})
 
     def set_meta(self, **meta):
         with self._lock:
@@ -59,14 +66,17 @@ def make_app(state: State) -> FastAPI:
             "columns": sensors.COLUMNS,
             "rows": rows,
         })
-        sent = len(rows)
+        last_seq = rows[-1]["seq"] if rows else 0
         try:
             while True:
                 await asyncio.sleep(1.0)
                 rows, meta = state.snapshot()
-                payload = {"type": "samples", "rows": rows[sent:], "meta": meta}
-                await sock.send_json(payload)
-                sent = len(rows)
+                new = [r for r in rows if r["seq"] > last_seq]
+                if new:
+                    last_seq = new[-1]["seq"]
+                    await sock.send_json({"type": "samples", "rows": new, "meta": meta})
+                else:
+                    await sock.send_json({"type": "samples", "rows": [], "meta": meta})
         except (WebSocketDisconnect, RuntimeError):
             pass
 

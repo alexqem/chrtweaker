@@ -93,7 +93,7 @@ python -m mycar dtc --hex "7E8 06 43 02 01 33 02 44" --mode 03     # DTC-дек�
 Живая проверка транспорта (машине нужно зажигание ON, лучше двигатель):
 
 ```sh
-../obdii_test/.venv/bin/python ../obdii_test/ble_elm.py            # ATZ + 0100 + 010C по BLE
+.venv/bin/python ../obdii_test/ble_elm.py                          # ATZ + 0100 + 010C по BLE
 ```
 
 Изменение в `sensors.py`/`config.py` должно пройти полный прогон на sim, включая анализ прошлых CSV (обратная совместимость колонок).

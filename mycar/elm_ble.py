@@ -105,12 +105,18 @@ class ElmBLE(ElmBase):
     # ---------------- transport (ElmBase contract) ----------------
 
     def send(self, cmd: str, wait: float | None = None) -> str:
-        """Write cmd, collect notifications until the '>' prompt."""
+        """Write cmd, collect notifications until the '>' prompt.
+
+        `wait` is a settle pause AFTER the write (same semantics as RawELM —
+        clones need a moment after ATZ etc.), not a write timeout.
+        """
         if not self._connected:
             raise ConnectionError("BLE link dropped")
         with self._lock:
             self._buf.clear()
-        self._run(self._client.write_gatt_char(self._char, cmd.encode() + b"\r"), wait)
+        self._run(self._client.write_gatt_char(self._char, cmd.encode() + b"\r"))
+        if wait:
+            time.sleep(wait)
         deadline = time.monotonic() + self.timeout
         while time.monotonic() < deadline and self._connected:
             with self._lock:

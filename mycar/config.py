@@ -70,9 +70,11 @@ NORMS = {
     "toyota_trim_dtc_lean_pct": 48,    # P017100 threshold (Toyota)
     "toyota_trim_dtc_rich_pct": -35,   # P017200 threshold (Toyota)
     "maf_at_3000rpm_gs": (4.0, 14.0),  # ECT>=75C, P/N, A/C off (Toyota SSM)
-    "fuel_pressure_idle_mpa": (4.0, 18.0),
-    "fuel_pressure_3000_mpa": (8.0, 18.0),
-    "battery_v_idle": (9.0, 14.0),
+    "fuel_pressure_idle_kpa": (4000, 18000),   # rail_p (PID 23) is kPa in sensors/CSV
+    "fuel_pressure_3000_kpa": (8000, 18000),
+    "battery_v_idle": (13.2, 14.8),    # charging system at warm idle; 9.x V is a
+                                       # cranking-drop floor, not an idle norm
+    "battery_v_cranking_min": 9.6,     # min during starter cranking (Toyota)
     "cold_start_max_c": COLD_COOLANT_MAX_C,
     "warm_target_c": WARM_COOLANT_MIN_C,
 }

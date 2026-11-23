@@ -172,6 +172,9 @@ function ingest(row){
   for (const k of cols){
     (series[k] ||= []).push(k==='ts'?+row[k]:(row[k]==null||row[k]===''?null:+row[k]));
   }
+  // производная величина: наддув = MAP − барометр (нет колонки в sensors.COLUMNS)
+  (series.boost ||= []).push(
+    (row.map!=null&&row.map!==''&&row.baro!=null&&row.baro!=='') ? +row.map - +row.baro : null);
   // константные границы ±10% на графике тримов
   while (series._hi.length < series.ts.length) series._hi.push(10);
   while (series._lo.length < series.ts.length) series._lo.push(-10);

@@ -21,6 +21,9 @@ def main():
     cp.add_argument("--dashboard-port", type=int, default=config.DASHBOARD_PORT)
     cp.add_argument("--no-multi", action="store_true",
                     help="disable multi-PID requests (one query per PID; auto-fallback anyway)")
+    cp.add_argument("--hold", action="store_true",
+                    help="keep the dashboard alive after the session (up to 1 h TTL); "
+                         "blocks the console meanwhile (default: exit with the session)")
 
     az = sub.add_parser("analyze", help="summarize the latest session into stats/")
     az.add_argument("file", nargs="?", help="specific logs/<session>.csv (default: latest)")
@@ -53,7 +56,8 @@ def main():
         signal.signal(signal.SIGTERM, lambda *_: (_ for _ in ()).throw(SystemExit(130)))
         try:
             capture(args.port, args.sim, args.max_minutes, args.sim_speed,
-                    args.dashboard, args.dashboard_port, multi=not args.no_multi)
+                    args.dashboard, args.dashboard_port, multi=not args.no_multi,
+                    hold=args.hold)
         except (KeyboardInterrupt, SystemExit):
             print("Stopped.")
     elif args.cmd == "analyze":
@@ -98,6 +102,10 @@ def run_dtc(args):
                 continue
             _print_dtc(r, toyota.marker_for(m))
     finally:
+        try:
+            conn.send("ATH0")  # never leave headers ON for the next session
+        except Exception:
+            pass
         conn.close()
 
 
@@ -144,7 +152,13 @@ def doctor():
 
     print("python     :", platform.python_version())
     print("driver     : raw pyserial", getattr(serial, "VERSION", "3.x"))
+    try:
+        import bleak
+        print("bleak      :", getattr(bleak, "__version__", "ok"), "(BLE transport)")
+    except ImportError:
+        print("bleak      : MISSING — `pip install bleak`; BLE transport unavailable")
     print("car profile:", config.CAR["make"], config.CAR["model"], config.CAR["body"], config.CAR["year"], config.CAR["engine"])
+    print("ble address:", config.BLE_ADDRESS or "(not set — auto-scan; copy .env.example to .env)")
     print("paths      :", config.LOGS_DIR, config.STATS_DIR)
 
     ports = sorted(p for p in glob.glob("/dev/cu.*"))
@@ -153,14 +167,18 @@ def doctor():
         for p in ports:
             print("  ", p)
     else:
-        print("serial ports: none found")
+        print("serial ports: none found (normal for a BLE-only dongle)")
     print(
         "\nmacOS notes:\n"
-        "- Pair the ELM327 in System Settings -> Bluetooth (PIN 1234 on cheap clones);"
-        " it then appears as /dev/cu.OBDII (or similar)\n"
+        "- Transport is BLE (service FFF0) — DO NOT pair the dongle in System Settings:\n"
+        "  the classic SPP profile of cheap clones is broken on macOS and pairing can\n"
+        "  hang the dongle until it is unplugged and replugged (details: docs/04)\n"
+        "- Bluetooth permission is granted to the terminal app (Terminal/iTerm/VS Code),\n"
+        "  not to python — allow it in System Settings -> Privacy & Security -> Bluetooth\n"
         "- The clone serves ONE client: close CarScanner / release the iPhone first\n"
-        "- If the port is silent: unplug+replug the adapter (BT cycle rarely helps)\n"
+        "- If the link is silent: unplug+replug the adapter (BT cycle rarely helps)\n"
         "- WiFi adapters: use --port socket://<ip>:35000\n"
+        "- Quick transport test: .venv/bin/python ../obdii_test/ble_elm.py\n"
         "- Full guide: docs/04-macos-bluetooth-elm327.md"
     )
 

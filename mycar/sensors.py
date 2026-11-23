@@ -34,6 +34,9 @@ POLL = [
 
 COLUMNS = ["ts"] + [n for n, _, _ in POLL] + ["cvt_temp", "cvt_raw"]
 
+# non-numeric sample columns: raw hex debug payloads, never float-parsed
+TEXT_COLUMNS = frozenset({"cvt_raw"})
+
 # first coolant probe (session mode decision) — derived from POLL, not duplicated
 COOLANT_PID, COOLANT_N = next((p, n) for name, p, n in POLL if name == "coolant")
 

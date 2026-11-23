@@ -472,23 +472,29 @@ def probe_report(conn) -> str:
     lines.append("")
 
     lines.append("## Toyota Mode-21 / Mode-01 menu (raw replies + decode candidates)")
-    conn.send("ATH1")
-    for cmd, about in PROBE_MENU:
-        r = conn.query_raw(cmd)
-        lines.append(f"### {cmd} — {about}")
-        lines.append(f"reply: {r if r else '(no data / not supported)'}")
-        if r:
-            payload = parse_full_payload(r, marker_for(cmd))
-            if payload is None:
-                lines.append(f"payload: <response marker {marker_for(cmd)} not found>")
-            elif cmd in CVT_CMDS:
-                val, cands = decode_atf(cmd, payload)
-                lines.append(f"payload bytes: {bytes(payload).hex()}")
-                lines.append(f"primary decode: {val}")
-                for label, v in cands:
-                    lines.append(f"  candidate {label} = {v}")
-            else:
-                lines.append(f"payload bytes: {bytes(payload).hex()}")
-        lines.append("")
-    conn.send("ATH0")
+    try:
+        conn.send("ATH1")  # headers ON: see which ECU answers
+        for cmd, about in PROBE_MENU:
+            r = conn.query_raw(cmd)
+            lines.append(f"### {cmd} — {about}")
+            lines.append(f"reply: {r if r else '(no data / not supported)'}")
+            if r:
+                payload = parse_full_payload(r, marker_for(cmd))
+                if payload is None:
+                    lines.append(f"payload: <response marker {marker_for(cmd)} not found>")
+                elif cmd in CVT_CMDS:
+                    val, cands = decode_atf(cmd, payload)
+                    lines.append(f"payload bytes: {bytes(payload).hex()}")
+                    lines.append(f"primary decode: {val}")
+                    for label, v in cands:
+                        lines.append(f"  candidate {label} = {v}")
+                else:
+                    lines.append(f"payload bytes: {bytes(payload).hex()}")
+            lines.append("")
+    finally:
+        # never leave ATH1 behind: it breaks the standard Mode-01 parsers
+        try:
+            conn.send("ATH0")
+        except Exception:
+            pass
     return "\n".join(lines)
