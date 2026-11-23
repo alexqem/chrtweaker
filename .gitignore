@@ -1,0 +1,21 @@
+# --- virtualenv / python ---
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# --- secrets: machine-specific config (BLE address, PIN) ---
+.env
+
+# --- session data: logs may contain the car VIN — keep private ---
+logs/*
+!logs/.gitkeep
+stats/*
+!stats/.gitkeep
+
+# --- OS / editor junk ---
+.DS_Store
+.idea/
+.vscode/

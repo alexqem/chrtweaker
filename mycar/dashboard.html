@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>C-HR NGX10 · Cold Start</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#0d1117; --card:#161b22; --card2:#1c2330; --line:rgba(240,246,252,.08);
+    --tx:#e6edf3; --tx2:#8b949e; --coolant:#58a6ff; --oil:#f0883a; --cvt:#bc8cff;
+    --iat:#7ee787; --rpm:#ff7b72; --maf:#79c0ff; --boost:#d2a8ff;
+    --stft:#ff6b6b; --ltft:#ffa94d; --rail:#ffd166; --volt:#63e6be;
+    --ok:#3fb950; --warn:#d29922; --r:14px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(1200px 600px at 70% -10%,#16202c 0%,var(--bg) 60%);
+       color:var(--tx);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  .wrap{max-width:1180px;margin:0 auto;padding:20px 16px 40px}
+  header{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:18px}
+  header h1{font-size:18px;margin:0;font-weight:650;letter-spacing:.2px}
+  header .sub{color:var(--tx2);font-size:12.5px}
+  .pill{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:999px;
+        font-size:12px;font-weight:600;border:1px solid var(--line);background:var(--card2)}
+  .pill.cold{color:#ffd8a8;border-color:#f0883a55;background:#f0883a18}
+  .pill.warm{color:#a5d6ff;border-color:#58a6ff55;background:#58a6ff18}
+  .pill.on{color:#aff5b4;border-color:#3fb95055;background:#3fb95015}
+  .pill.off{color:var(--tx2)}
+  .spacer{flex:1}
+  .live-dot{width:8px;height:8px;border-radius:50%;background:var(--ok);
+            box-shadow:0 0 0 0 #3fb95066;animation:pulse 1.6s infinite}
+  @keyframes pulse{70%{box-shadow:0 0 0 7px #3fb95000}100%{box-shadow:0 0 0 0 #3fb95000}}
+
+  .grid{display:grid;gap:12px}
+  .cards{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+  .charts{grid-template-columns:repeat(auto-fit,minmax(330px,1fr))}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px}
+  .stat{display:flex;gap:11px;align-items:flex-start}
+  .ic{flex:0 0 25px;color:var(--tx2);display:flex}
+  .stat .k{font-size:11.5px;color:var(--tx2);letter-spacing:.3px;text-transform:uppercase}
+  .stat .v{font-size:24px;font-weight:640;font-variant-numeric:tabular-nums;line-height:1.15}
+  .stat .v small{font-size:12px;color:var(--tx2);font-weight:500;margin-left:3px}
+  .stat .n{font-size:11.5px;color:var(--tx2)}
+  .stat.hi .v{color:var(--warn)}
+
+  .chart-card h3{margin:0 0 8px;font-size:12.5px;color:var(--tx2);font-weight:600;
+                 letter-spacing:.3px;display:flex;align-items:center;gap:8px}
+  .chart-card h3 .ic{flex:0 0 25px}
+  .chart-body{position:relative;height:190px}
+  .chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
+  .chip{font-size:11.5px;color:var(--tx2);border:1px solid var(--line);
+        background:var(--card2);border-radius:8px;padding:4px 10px}
+  footer{color:var(--tx2);font-size:11.5px;margin-top:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Toyota C-HR · NGX10 · 8NR-FTS</h1>
+    <span class="pill" id="mode">—</span>
+    <span class="pill off" id="warmed">прогрев</span>
+    <span class="spacer"></span>
+    <span class="pill off" id="live"><span class="live-dot" style="visibility:hidden"></span><span id="live-tx">нет связи</span></span>
+    <span class="pill" id="clock"></span>
+  </header>
+
+  <div class="grid cards" id="stats"></div>
+
+  <div class="grid charts" style="margin-top:12px">
+    <div class="card chart-card"><h3><span class="ic" data-ic="temp"></span>Температуры, °C</h3><div class="chart-body"><canvas id="chTemps"></canvas></div></div>
+    <div class="card chart-card"><h3><span class="ic" data-ic="engine"></span>Обороты, rpm</h3><div class="chart-body"><canvas id="chRpm"></canvas></div></div>
+    <div class="card chart-card"><h3><span class="ic" data-ic="air"></span>Воздух и наддув</h3><div class="chart-body"><canvas id="chAir"></canvas></div></div>
+    <div class="card chart-card"><h3><span class="ic" data-ic="trim"></span>Топливные коррекции, %</h3><div class="chart-body"><canvas id="chTrims"></canvas></div></div>
+    <div class="card chart-card"><h3><span class="ic" data-ic="fuel"></span>Давление рампы, kPa</h3><div class="chart-body"><canvas id="chRail"></canvas></div></div>
+    <div class="card chart-card"><h3><span class="ic" data-ic="batt"></span>Бортсеть, V</h3><div class="chart-body"><canvas id="chVolt"></canvas></div></div>
+  </div>
+
+  <div class="chips">
+    <span class="chip">Нормы: ХХ CVT 680–780 rpm</span>
+    <span class="chip">ECT рабочее окно 75–100 °C</span>
+    <span class="chip">Тримы ±10 %</span>
+    <span class="chip">Рампа D-4T ХХ 4000–18 000 kPa</span>
+    <span class="chip">Термостат откр. 80–84 °C</span>
+  </div>
+  <footer>Логи: logs/*.csv · сводка: stats/*_summary.md · нормы: docs/03 · сырье CVT PID 21 82 → cvt_raw</footer>
+</div>
+
+<script>
+/* ---------- иконки 25×25, единый штриховой стиль ---------- */
+const ICONS = {
+  temp:   '<path d="M12.5 4v9.2a4 4 0 1 1-3 0V4a1.5 1.5 0 0 1 3 0Z"/><circle cx="11" cy="17.2" r="1.7"/>',
+  engine: '<path d="M6.5 8h4V6h4v2h3.5l3 3v6.5h-4l-2.5 2.5H8L5.5 17H4v-6h2.5Z"/><path d="M10 12h5M4.5 11H2.8M20 12h2.2"/>',
+  cvt:    '<circle cx="9.5" cy="9.5" r="3.4"/><circle cx="16.5" cy="15.5" r="3.4"/><path d="M12 11.6l2.4 1.8M15.4 8.3l1.4-2.6M7.6 15.5H5.2M18.6 12.4l2-.9"/>',
+  clock:  '<circle cx="12.5" cy="12.5" r="8.5"/><path d="M12.5 7.5v5l3.4 2"/>',
+  air:    '<path d="M3 9h11a3 3 0 1 0-3-3M3 13h15a3 3 0 1 1-3 3M3 17h7"/>',
+  trim:   '<path d="M4 8h17M4 17h17"/><circle cx="9" cy="8" r="2.4"/><circle cx="16" cy="17" r="2.4"/>',
+  fuel:   '<path d="M6 21V5a2 2 0 0 1 2-2h5a2 2 0 0 1 2 2v16M4 21h13M15 9h3a2 2 0 0 1 2 2v6a1.6 1.6 0 0 0 3.2 0V9.5L20.5 6"/><path d="M8.5 7h3v3h-3z"/>',
+  batt:   '<rect x="3" y="8" width="17" height="9.5" rx="2"/><path d="M20.5 11v3.5M7.5 11v3.5M11 11v3.5"/>',
+  boost:  '<path d="M12.5 4v3.2M12.5 4a8.5 8.5 0 0 1 8.4 7.3M12.5 4a8.5 8.5 0 0 0-8.4 7.3"/><circle cx="12.5" cy="15" r="5.5"/><path d="M12.5 15l3-3M12.5 15l-2.6 2.6"/>',
+  oil:    '<path d="M12.5 3.5S6.5 10 6.5 14.3a6 6 0 0 0 12 0C18.5 10 12.5 3.5 12.5 3.5Z"/>',
+};
+document.querySelectorAll('.ic').forEach(el=>{
+  const p = ICONS[el.dataset.ic]||'';
+  el.innerHTML = `<svg width="25" height="25" viewBox="0 0 25 25" fill="none"
+     stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
+});
+
+/* ---------- хелперы (объявлены до графиков — колбэк оси их вызывает) ---------- */
+const fmt = (v,d=1)=> v==null||isNaN(v) ? '—' : (Math.round(v*10**d)/10**d).toLocaleString('ru');
+const mmss = s => { s=Math.max(0,Math.round(s)); return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`; };
+
+/* ---------- статкарты ---------- */
+const STATS = [
+  ['engine','Двигатель','холостой ход','rpm', c=>fmt(c.rpm,0)],
+  ['temp','ОЖ','coolant','°C', c=>fmt(c.coolant), c=>c.coolant!=null&&c.coolant>=80],
+  ['oil','Масло','oil_temp','°C', c=>fmt(c.oil_temp)],
+  ['cvt','CVT','21 82 → cvt_temp','°C', c=>fmt(c.cvt_temp)],
+  ['clock','Время сессии','от старта','', c=>mmss(c.ts)],
+  ['air','MAF','maf','g/s', c=>fmt(c.maf)],
+  ['boost','Наддув','map − баро','kPa', c=>fmt(c.boost)],
+  ['fuel','Рампа','rail_p','kPa', c=>fmt(c.rail_p,0)],
+  ['trim','Коррекции','STFT / LTFT','%', c=>c.stft==null?'—':`${fmt(c.stft)} / ${fmt(c.ltft)}`],
+  ['batt','Бортсеть','voltage','V', c=>fmt(c.voltage)],
+];
+const statsEl = document.getElementById('stats');
+statsEl.innerHTML = STATS.map((s,i)=>`
+  <div class="card stat" id="st${i}">
+    <span class="ic" data-ic="${s[0]}"></span>
+    <div><div class="k">${s[1]}</div><div class="v">—</div><div class="n">${s[2]}${s[3]?' · '+s[3]:''}</div></div>
+  </div>`).join('');
+statsEl.querySelectorAll('.ic').forEach(el=>{
+  el.innerHTML = `<svg width="25" height="25" viewBox="0 0 25 25" fill="none"
+    stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICONS[el.dataset.ic]}</svg>`;
+});
+
+/* ---------- графики (цвета в hex — canvas не понимает CSS-переменные) ---------- */
+const C = {coolant:'#58a6ff',oil:'#f0883a',cvt:'#bc8cff',iat:'#7ee787',rpm:'#ff7b72',
+           maf:'#79c0ff',boost:'#d2a8ff',stft:'#ff6b6b',ltft:'#ffa94d',rail:'#ffd166',volt:'#63e6be'};
+const mkChart = (id, sets, y1=null)=>{
+  const ds = sets.map(s=>({label:s.l, data:[], borderColor:s.c, backgroundColor:s.c+'22',
+    borderWidth:2, pointRadius:0, tension:.3, yAxisID:s.y||'y', borderDash:s.d||[]}));
+  return new Chart(document.getElementById(id), {
+    type:'line',
+    data:{datasets:ds},
+    options:{
+      animation:false, maintainAspectRatio:false, interaction:{mode:'nearest',intersect:false},
+      plugins:{legend:{labels:{color:'#8b949e',boxWidth:8,boxHeight:2,font:{size:10.5}}}},
+      scales:{
+        x:{type:'linear',ticks:{color:'#8b949e',font:{size:10},maxTicksLimit:8,callback:v=>mmss(v)},
+           grid:{color:'rgba(240,246,252,.05)'}},
+        y:{ticks:{color:'#8b949e',font:{size:10}},grid:{color:'rgba(240,246,252,.05)'}},
+        ...(y1?{y1:{position:'right',ticks:{color:'#8b949e',font:{size:10}},grid:{drawOnChartArea:false}}}:{})
+      }
+    }
+  });
+};
+const chTemps = mkChart('chTemps',[
+  {l:'ОЖ',c:C.coolant},{l:'Масло',c:C.oil},{l:'IAT',c:C.iat},{l:'CVT',c:C.cvt}]);
+const chRpm   = mkChart('chRpm',[{l:'RPM',c:C.rpm}]);
+const chAir   = mkChart('chAir',[{l:'MAF g/s',c:C.maf},{l:'Boost kPa',c:C.boost,y:'y1'}]);
+const chTrims = mkChart('chTrims',[
+  {l:'STFT',c:C.stft},{l:'LTFT',c:C.ltft},
+  {l:'+10%',c:'rgba(240,246,252,.25)',d:[4,4]},{l:'-10%',c:'rgba(240,246,252,.25)',d:[4,4]}]);
+const chRail  = mkChart('chRail',[{l:'Рампа kPa',c:C.rail}]);
+const chVolt  = mkChart('chVolt',[{l:'V',c:C.volt}]);
+
+/* ---------- живые данные ---------- */
+const series = {};   // key -> array of numbers/null (по sensors.COLUMNS)
+let cols = [];
+
+function ingest(row){
+  for (const k of cols){
+    (series[k] ||= []).push(k==='ts'?+row[k]:(row[k]==null||row[k]===''?null:+row[k]));
+  }
+  // константные границы ±10% на графике тримов
+  while (series._hi.length < series.ts.length) series._hi.push(10);
+  while (series._lo.length < series.ts.length) series._lo.push(-10);
+}
+function repaint(){
+  const x = series.ts;
+  const fill=(ch, map)=>{ ch.data.labels=x; ch.data.datasets.forEach(ds=>{ ds.data = map[ds.label]||[]; }); ch.update('none'); };
+  fill(chTemps,{ОЖ:series.coolant,'Масло':series.oil_temp,IAT:series.iat,CVT:series.cvt_temp});
+  fill(chRpm,{RPM:series.rpm});
+  fill(chAir,{'MAF g/s':series.maf,'Boost kPa':series.boost});
+  fill(chTrims,{STFT:series.stft,LTFT:series.ltft,'+10%':series._hi,'-10%':series._lo});
+  fill(chRail,{'Рампа kPa':series.rail_p});
+  fill(chVolt,{V:series.voltage});
+  // статкарты
+  const last = {}; for (const k of cols) last[k]=series[k]?.at(-1);
+  last.boost = (last.map!=null&&last.baro!=null)? last.map-last.baro : null;
+  last.trim = (last.stft!=null)? last.stft : null;
+  STATS.forEach((s,i)=>{
+    const el=document.getElementById('st'+i);
+    const v=el.querySelector('.v'); const val=s[4](last);
+    v.innerHTML = val==='—'?'—':val+(s[3]?`<small>${s[3]}</small>`:'');
+    el.classList.toggle('hi', !!(s[5]&&s[5](last)));
+  });
+}
+
+function metaUpd(m){
+  if (!m) return;
+  const mode=document.getElementById('mode');
+  if (m.finished){
+    mode.textContent = '✓ СЕССИЯ ЗАВЕРШЕНА — данные зафиксированы';
+    mode.className = 'pill on';
+    const w=document.getElementById('warmed');
+    if (m.warm_at_s!=null){ w.textContent=`✔ прогрев ${mmss(m.warm_at_s)}`; w.className='pill on'; }
+    return;  // данные больше не обновляются
+  }
+  mode.textContent = m.mode==='cold' ? '❄ ХОЛОДНЫЙ ПУСК' : 'ПРОГРЕТЫЙ';
+  mode.className = 'pill '+(m.mode==='cold'?'cold':'warm');
+  const w=document.getElementById('warmed');
+  if (m.warm_at_s!=null){ w.textContent=`✔ прогрев ${mmss(m.warm_at_s)}`; w.className='pill on'; }
+  const c=document.getElementById('clock');
+  c.innerHTML=`<span class="ic" style="width:25px;height:25px"><svg width="25" height="25" viewBox="0 0 25 25" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12.5" cy="12.5" r="8.5"/><path d="M12.5 7.5v5l3.4 2"/></svg></span> ${mmss(m.elapsed_s||series.ts?.at(-1)||0)}`;
+}
+
+let ws=null;
+function connect(){
+  ws = new WebSocket(`ws://${location.host}/ws`);
+  const live=document.getElementById('live'), tx=document.getElementById('live-tx'), dot=live.querySelector('.live-dot');
+  ws.onopen = ()=>{ tx.textContent='онлайн'; dot.style.visibility='visible'; live.className='pill on'; };
+  ws.onclose = ()=>{ tx.textContent='нет связи'; dot.style.visibility='hidden'; live.className='pill off'; setTimeout(connect,2000); };
+  ws.onmessage = ev=>{
+    const msg = JSON.parse(ev.data);
+    if (msg.type==='snapshot'){
+      cols = msg.columns;
+      series._hi=[]; series._lo=[];
+      msg.rows.forEach(ingest);
+    } else if (msg.type==='samples'){
+      msg.rows.forEach(ingest);
+    }
+    metaUpd(msg.meta);
+    repaint();
+  };
+}
+connect();
+</script>
+</body>
+</html>
