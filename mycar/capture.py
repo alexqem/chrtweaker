@@ -61,6 +61,31 @@ def _poll_multi(conn, groups) -> dict[str, list[int]] | None:
     return out
 
 
+def save_session(csv_path, meta_path, meta, aborted, log):
+    """Write meta.json and mirror the session into the DB.
+
+    Called from capture's finally-block so interrupted sessions (Ctrl+C)
+    keep their meta + DB rows — only a hard crash loses them.
+    """
+    if meta is None:  # failed before the session even started
+        return
+    if aborted:
+        log(f"⚠ Session aborted: {aborted}")
+        meta["aborted"] = aborted
+    if csv_path.exists():
+        meta["rows"] = sum(1 for _ in open(csv_path)) - 1
+    meta["finished_at"] = datetime.now(timezone.utc).isoformat()
+    meta_path.write_text(json.dumps(meta, ensure_ascii=False, indent=2))
+    log(f"Saved: {csv_path.name} + {meta_path.name}")
+    try:
+        from mycar import db
+        sid = db.import_session(csv_path)
+        if sid:
+            log(f"DB: mirrored into {db.DB_PATH.name} (session #{sid})")
+    except Exception as e:  # DB failure must never lose the session
+        log(f"⚠ DB mirror skipped: {e}")
+
+
 def capture(port: str | None, simulate: bool, max_minutes: float, sim_time_scale: float = 1.0,
             dashboard: bool = True, dashboard_port: int = config.DASHBOARD_PORT,
             multi: bool = True, hold: bool = False, log=print) -> str:
@@ -93,6 +118,9 @@ def capture(port: str | None, simulate: bool, max_minutes: float, sim_time_scale
             time.sleep(config.CONNECT_RETRY_SLEEP_S)
     else:
         raise last_err
+
+    csv_path = meta_path = meta = None  # save_session() guards on these
+    aborted = None
     try:
         # --- session mode from the first coolant reading -------------------
         first_coolant = None
@@ -137,7 +165,6 @@ def capture(port: str | None, simulate: bool, max_minutes: float, sim_time_scale
         log(f"Session mode: {mode}  (start coolant {first_coolant:.0f} °C)")
 
         started_at = time.monotonic()
-        aborted = None
         with open(csv_path, "w", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=sensors.COLUMNS)
             writer.writeheader()
@@ -232,22 +259,12 @@ def capture(port: str | None, simulate: bool, max_minutes: float, sim_time_scale
                     break
                 time.sleep(config.SAMPLE_INTERVAL_S)
 
-        if aborted:
-            log(f"⚠ Session aborted: {aborted}")
-            meta["aborted"] = aborted
-        meta["rows"] = sum(1 for _ in open(csv_path)) - 1
-        meta["finished_at"] = datetime.now(timezone.utc).isoformat()
-        meta_path.write_text(json.dumps(meta, ensure_ascii=False, indent=2))
-        log(f"Saved: {csv_path.name} + {meta_path.name}")
-        try:
-            from mycar import db
-            sid = db.import_session(csv_path)
-            if sid:
-                log(f"DB: mirrored into {db.DB_PATH.name} (session #{sid})")
-        except Exception as e:  # DB failure must never lose the session
-            log(f"⚠ DB mirror skipped: {e}")
+        meta["completed"] = True  # absent in meta if the loop was interrupted
         return str(csv_path)
     finally:
+        # the session is ALWAYS saved: an interrupted capture (Ctrl+C) must
+        # still write meta.json + the DB mirror (the CSV is already on disk)
+        save_session(csv_path, meta_path, meta, aborted, log)
         conn.close()
         if state:
             state.set_meta(finished=True, finished_at=datetime.now(timezone.utc).isoformat())

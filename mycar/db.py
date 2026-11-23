@@ -12,6 +12,7 @@ import csv
 import json
 import sqlite3
 from datetime import datetime, timezone
+from pathlib import Path
 
 from mycar import config, sensors
 
@@ -61,7 +62,7 @@ def import_session(csv_path) -> int | None:
 
     Skips if this csv_file is already imported (idempotent).
     """
-    csv_path = str(csv_path)
+    csv_path = str(Path(csv_path).resolve())  # idempotent across rel/abs spellings
     meta_path = csv_path.replace(".csv", ".meta.json")
     meta = {}
     try:
