@@ -409,28 +409,120 @@ def scan_supported(conn, max_blocks: int = 7) -> list[int]:
 
 # ------------------------------------------------- car identity (Mode 09)
 
-def parse_mode09(reply: str, pid: str = "02") -> str | None:
-    """Mode 09 reply -> ASCII string. Payload = count/instance byte + ASCII."""
-    payload = parse_full_payload(reply, marker_for("09" + pid))
+def assemble_ecu(reply: str) -> dict[str, list[int]]:
+    """ATH1 reply -> {ecu_header: message bytes}, ISO-TP reassembled PER ECU.
+
+    The clone prints one CAN frame per line ('7E8 10 13 49 04 …', '7E8 21 …')
+    and interleaves the streams of answering ECUs — parsing ATH0 text as one
+    message truncates (real case: CalID cut to '896'). A header-less reply
+    (sim / ATH0) is returned whole under key ''.
+    """
+    frames: list[tuple[str, int, list[int]]] = []
+    for line in reply.replace("\r", "\n").split("\n"):
+        toks = [t for t in re.split(r"[^0-9A-Fa-f]+", line.upper()) if t]
+        if not toks:
+            continue
+        if len(toks[0]) == 3:  # '7E8' CAN header -> ATH1 frame line
+            try:
+                pci = int(toks[1], 16)
+                data = [int(t, 16) for t in toks[2:]]
+            except (IndexError, ValueError):
+                continue
+            frames.append((toks[0], pci, data))
+        else:  # no header: one reassembled ATH0 message (sim/single ECU)
+            try:
+                frames.append(("", 0, [int(t, 16) for t in toks]))
+            except ValueError:
+                continue
+
+    out: dict[str, list[int]] = {}
+    buf: dict[str, list[int]] = {}
+    want: dict[str, int] = {}
+    for hdr, pci, data in frames:
+        if not hdr:  # ATH0 world: tokens already are the message
+            out.setdefault("", []).extend(data)
+            continue
+        kind = pci >> 4
+        if kind == 0:  # single frame
+            out[hdr] = data[: pci & 0x0F]
+            want.pop(hdr, None)
+            buf.pop(hdr, None)
+        elif kind == 1:  # first frame: 12-bit total length
+            want[hdr] = ((pci & 0x0F) << 8) | (data[0] if data else 0)
+            buf[hdr] = data[1:]
+        elif kind == 2 and hdr in want:  # consecutive frame: all 7 bytes are data
+            buf[hdr] += data
+            if len(buf[hdr]) >= want[hdr]:
+                out[hdr] = buf[hdr][: want.pop(hdr)]
+                buf.pop(hdr, None)
+    return out
+
+
+def _mode09_payload(msg: list[int] | None, pid: str) -> list[int] | None:
+    """Bytes after the 49 xx marker inside one assembled message."""
+    if not msg:
+        return None
+    m = marker_for("09" + pid)  # e.g. '4902'
+    mark = (int(m[0:2], 16), int(m[2:4], 16))
+    for i in range(len(msg) - 1):
+        if msg[i] == mark[0] and msg[i + 1] == mark[1]:
+            return msg[i + 2:]  # instance/count byte first, then data
+    return None
+
+
+def parse_mode09(reply: str, pid: str = "02", ecu: str | None = None) -> str | None:
+    """Mode 09 reply -> ASCII string. Payload = count/instance byte + ASCII.
+
+    `ecu` picks a stream by CAN header ('7E8' = Engine, '7E9' = Transmission);
+    default = first stream (works for sim/ATH0 single-message replies).
+    """
+    streams = assemble_ecu(reply)
+    payload = _mode09_payload(streams.get(ecu) if ecu else next(iter(streams.values()), None), pid)
     if not payload:
         return None
     s = "".join(chr(x) for x in payload[1:] if 0x20 <= x <= 0x7E).strip()
     return s or None
 
 
-def read_car_id(conn) -> dict:
-    """VIN / calibration ID / ECU name (0902/0904/090A) — functional, safe.
+def parse_mode09_hex(reply: str, pid: str = "06", ecu: str | None = None) -> str | None:
+    """Mode 09 reply -> hex data string (CVN 0906 is binary, not ASCII)."""
+    streams = assemble_ecu(reply)
+    payload = _mode09_payload(streams.get(ecu) if ecu else next(iter(streams.values()), None), pid)
+    if not payload or len(payload) < 2:
+        return None
+    return bytes(payload[1:]).hex().upper() or None
 
-    Any failure -> None field; never raises. Goes into session meta as
-    `car_id` (CalID helps test the 'JDM calibration' LTFT hypothesis).
+
+def read_car_id(conn) -> dict:
+    """VIN / CalID / CVN / ECU name (Mode 09) — per-ECU, functional, safe.
+
+    Goes through ATH1 + ISO-TP reassembly (see assemble_ecu for why ATH0
+    truncates). ECM (7E8) values land in the main keys, transmission (7E9)
+    extras in *_tcm. CalID/CVN test the 'JDM calibration' LTFT hypothesis.
+    Any failure -> None field; never raises.
     """
-    out = {}
-    for key, pid in (("vin", "02"), ("calid", "04"), ("ecu_name", "0A")):
+    out: dict = {}
+    try:
+        conn.send("ATH1", wait=0.2)
+    except Exception:
+        pass
+    try:
+        for key, pid in (("vin", "02"), ("calid", "04"), ("cvn", "06"), ("ecu_name", "0A")):
+            try:
+                r = conn.query_raw("09" + pid)
+                parse = parse_mode09_hex if key == "cvn" else parse_mode09
+                main = parse(r or "", pid, ecu="7E8") or parse(r or "", pid)
+                out[key] = main
+                tcm = parse(r or "", pid, ecu="7E9")
+                if tcm and tcm != main:
+                    out[key + "_tcm"] = tcm
+            except Exception:
+                out[key] = None
+    finally:
         try:
-            r = conn.query_raw("09" + pid)
-            out[key] = parse_mode09(r, pid) if r else None
+            conn.send("ATH0", wait=0.2)  # never leave headers ON for capture
         except Exception:
-            out[key] = None
+            pass
     return out
 
 
@@ -447,9 +539,57 @@ PROBE_MENU = [
 ]
 
 
-def probe_report(conn) -> str:
+INTERESTING = {  # for the 'not answering' footnote of the empirical sweep
+    "0B": "MAP", "23": "rail pressure (D-4T)", "5C": "oil temp",
+    "B4": "ATF/CVT temp (Toyota ext.)",
+}
+
+
+def sweep_report(conn) -> str:
+    """Empirical Mode-01 sweep 00..FF + raw Mode 09 (ATH1, per-ECU).
+
+    Bitmasks under-report on this car (0x5C is hidden but alive), so the only
+    honest map is asking every PID. Slow (~2 min) — via `probe --sweep`.
+    """
+    lines = ["## Empirical sweep: Mode-01 00..FF (answering PIDs)", ""]
+    try:
+        conn.send("ATH1", wait=0.3)
+    except Exception:
+        pass
+    try:
+        hits, misses = [], set()
+        for pid in range(0x00, 0x100):
+            cmd = f"01{pid:02X}"
+            try:
+                r = (conn.query_raw(cmd) or "").strip()
+            except Exception as e:
+                r = f"<error: {e}>"
+            up = r.upper()
+            if "41" in up and "NO DATA" not in up:
+                hits.append((cmd, r))
+            else:
+                misses.add(pid)  # NO DATA / '?' / error
+        for cmd, r in hits:
+            lines.append(f"### {cmd}\n{r}")
+        dead = [f"0x{p:02X} {INTERESTING[f'{p:02X}']}"
+                for p in sorted(misses) if f"{p:02X}" in INTERESTING]
+        lines += ["", f"hits: {len(hits)} of 256",
+                  f"NOT answering (of interesting): {', '.join(dead) or '—'}", ""]
+        lines.append("## Mode 09 raw (identity / CVN / performance counters)")
+        for cmd in ("0900", "0902", "0904", "0906", "0908", "090A"):
+            lines += [f"### {cmd}", (conn.query_raw(cmd) or "(no data)").strip()]
+        return "\n".join(lines)
+    finally:
+        try:
+            conn.send("ATH0", wait=0.3)
+        except Exception:
+            pass
+
+
+def probe_report(conn, sweep: bool = False) -> str:
     """Run the full experiment suite: car identity, supported-PID scan and the
-    Mode-21 menu (with ATH1 to see which ECU answers) + decode candidates."""
+    Mode-21 menu (with ATH1 to see which ECU answers) + decode candidates.
+    sweep=True adds the empirical 00..FF sweep (~2 min)."""
     lines = ["# mycar probe — Toyota experiment menu", ""]
 
     lines.append("## Car identity (Mode 09)")
@@ -470,6 +610,10 @@ def probe_report(conn) -> str:
     else:
         lines.append("  (no bitmask answers)")
     lines.append("")
+
+    if sweep:
+        lines.append(sweep_report(conn))
+        lines.append("")
 
     lines.append("## Toyota Mode-21 / Mode-01 menu (raw replies + decode candidates)")
     try:

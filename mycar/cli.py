@@ -41,6 +41,8 @@ def main():
     pp = sub.add_parser("probe", help="experimental: try Toyota Mode-21 PIDs, show decode candidates")
     pp.add_argument("--port", help="adapter (default: auto BLE)")
     pp.add_argument("--sim", action="store_true", help="offline simulator (no car/adapter)")
+    pp.add_argument("--sweep", action="store_true",
+                    help="add the empirical Mode-01 00..FF sweep + raw Mode 09 (~2 min on the car)")
 
     args = ap.parse_args()
 
@@ -134,7 +136,7 @@ def run_probe(args):
 
     conn = connection.connect(args.port, args.sim, log=print)
     try:
-        report = toyota.probe_report(conn)
+        report = toyota.probe_report(conn, sweep=args.sweep)
     finally:
         conn.close()
     print(report)

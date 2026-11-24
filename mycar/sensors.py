@@ -19,18 +19,20 @@ POLL = [
     ("coolant", "05", 1),
     ("oil_temp", "5C", 1),
     ("iat", "0F", 1),
-    ("map", "0B", 1),
     ("baro", "33", 1),
     ("maf", "10", 2),
     ("load", "04", 1),
     ("stft", "06", 1),
     ("ltft", "07", 1),
-    ("rail_p", "23", 2),      # D-4T high-pressure circuit, kPa
+    ("fuel_status", "03", 2),  # 1=open loop, 2=closed (norming context for trims)
+    ("catalyst", "3C", 2),     # catalyst temp B1S1, °C (light-off during cold start)
     ("timing", "0E", 1),
-    ("throttle", "45", 1),    # relative throttle
+    ("throttle", "45", 1),     # relative throttle
     ("voltage", "42", 2),
     ("runtime", "1F", 2),
 ]
+# removed 2026-11-24 (empirical sweep on the car): map (0x0B) and rail_p (0x23,
+# D-4T) never answer on NGX10 — polling them only slowed every cycle down.
 
 COLUMNS = ["ts"] + [n for n, _, _ in POLL] + ["cvt_temp", "cvt_raw"]
 
@@ -53,8 +55,6 @@ def decode(name: str, data: list[int]) -> float | None:
         return float(data[0])
     if name in ("coolant", "oil_temp", "iat"):
         return data[0] - 40
-    if name == "map":
-        return float(data[0])
     if name == "baro":
         return float(data[0])
     if name == "maf":
@@ -63,8 +63,10 @@ def decode(name: str, data: list[int]) -> float | None:
         return data[0] * 100 / 255
     if name in ("stft", "ltft"):
         return (data[0] - 128) * 100 / 128
-    if name == "rail_p":
-        return (data[0] * 256 + data[1]) * 10
+    if name == "fuel_status":
+        return float(data[0])
+    if name == "catalyst":
+        return (data[0] * 256 + data[1]) / 10
     if name == "timing":
         return (data[0] - 128) / 2
     if name == "throttle":

@@ -56,6 +56,7 @@ MAX_SESSION_MINUTES = 45     # hard stop, protects against forgotten dongle
 CONNECT_ATTEMPTS = 3         # adapter connect attempts before giving up
 CONNECT_RETRY_SLEEP_S = 3.0  # pause between connect attempts
 COOLANT_PROBE_ATTEMPTS = 5   # first-coolant reads to decide cold/warm mode
+CVT_GIVE_UP_CYCLES = 5       # empty cvt tries before skipping it for the session
 MAX_RECONNECTS = 20          # link drop reconnects before aborting the session
 
 # --- Dashboard ---

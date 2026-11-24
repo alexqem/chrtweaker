@@ -165,6 +165,7 @@ def capture(port: str | None, simulate: bool, max_minutes: float, sim_time_scale
         log(f"Session mode: {mode}  (start coolant {first_coolant:.0f} °C)")
 
         started_at = time.monotonic()
+        cvt_misses, cvt_skip = 0, False  # cvt: give up after CVT_GIVE_UP_CYCLES empty tries
         with open(csv_path, "w", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=sensors.COLUMNS)
             writer.writeheader()
@@ -207,13 +208,22 @@ def capture(port: str | None, simulate: bool, max_minutes: float, sim_time_scale
                         fail_streak = fail_streak + 1 if data is None else 0
 
                 cvt_val, cvt_raw = (None, None)
-                try:
-                    cvt_val, cvt_raw = conn.query_cvt_and_raw()
-                    # NOTE: no fail_streak here — cvt_temp is experimental and
-                    # legitimately silent on adapters/ECUs without 01B4/21D9/2182
-                except SERIAL_ERRORS as e:
-                    log(f"  ! serial error on cvt: {e}")
-                    fail_streak += 1
+                if not cvt_skip:
+                    try:
+                        cvt_val, cvt_raw = conn.query_cvt_and_raw()
+                        # NOTE: no fail_streak here — cvt_temp is experimental and
+                        # legitimately silent on adapters/ECUs without 01B4/21D9/2182
+                    except SERIAL_ERRORS as e:
+                        log(f"  ! serial error on cvt: {e}")
+                        fail_streak += 1
+                    if cvt_raw is None:
+                        cvt_misses += 1
+                        if cvt_misses >= config.CVT_GIVE_UP_CYCLES:
+                            cvt_skip = True
+                            log(f"  cvt: silent for {cvt_misses} cycles — skipping for the rest of "
+                                f"the session (01B4/21D9/2182 are dead on this clone)")
+                    else:
+                        cvt_misses = 0  # raw payload seen: keep polling, decode may still improve
                 values["cvt_temp"] = cvt_val
                 values["cvt_raw"] = cvt_raw
 

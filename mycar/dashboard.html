@@ -8,9 +8,9 @@
 <style>
   :root{
     --bg:#0d1117; --card:#161b22; --card2:#1c2330; --line:rgba(240,246,252,.08);
-    --tx:#e6edf3; --tx2:#8b949e; --coolant:#58a6ff; --oil:#f0883a; --cvt:#bc8cff;
-    --iat:#7ee787; --rpm:#ff7b72; --maf:#79c0ff; --boost:#d2a8ff;
-    --stft:#ff6b6b; --ltft:#ffa94d; --rail:#ffd166; --volt:#63e6be;
+    --tx:#e6edf3; --tx2:#8b949e; --coolant:#58a6ff; --oil:#f0883a;
+    --iat:#7ee787; --rpm:#ff7b72; --maf:#79c0ff; --cat:#bc8cff;
+    --stft:#ff6b6b; --ltft:#ffa94d; --volt:#63e6be;
     --ok:#3fb950; --warn:#d29922; --r:14px;
   }
   *{box-sizing:border-box}
@@ -69,9 +69,9 @@
   <div class="grid charts" style="margin-top:12px">
     <div class="card chart-card"><h3><span class="ic" data-ic="temp"></span>Температуры, °C</h3><div class="chart-body"><canvas id="chTemps"></canvas></div></div>
     <div class="card chart-card"><h3><span class="ic" data-ic="engine"></span>Обороты, rpm</h3><div class="chart-body"><canvas id="chRpm"></canvas></div></div>
-    <div class="card chart-card"><h3><span class="ic" data-ic="air"></span>Воздух и наддув</h3><div class="chart-body"><canvas id="chAir"></canvas></div></div>
+    <div class="card chart-card"><h3><span class="ic" data-ic="air"></span>Воздух, MAF г/с</h3><div class="chart-body"><canvas id="chAir"></canvas></div></div>
     <div class="card chart-card"><h3><span class="ic" data-ic="trim"></span>Топливные коррекции, %</h3><div class="chart-body"><canvas id="chTrims"></canvas></div></div>
-    <div class="card chart-card"><h3><span class="ic" data-ic="fuel"></span>Давление рампы, kPa</h3><div class="chart-body"><canvas id="chRail"></canvas></div></div>
+    <div class="card chart-card"><h3><span class="ic" data-ic="temp"></span>Катализатор, °C</h3><div class="chart-body"><canvas id="chCat"></canvas></div></div>
     <div class="card chart-card"><h3><span class="ic" data-ic="batt"></span>Бортсеть, V</h3><div class="chart-body"><canvas id="chVolt"></canvas></div></div>
   </div>
 
@@ -82,7 +82,7 @@
     <span class="chip">Рампа D-4T ХХ 4000–18 000 kPa</span>
     <span class="chip">Термостат откр. 80–84 °C</span>
   </div>
-  <footer>Логи: logs/*.csv · сводка: stats/*_summary.md · нормы: docs/03 · сырье CVT PID 21 82 → cvt_raw</footer>
+  <footer>Логи: logs/*.csv · сводка: stats/*_summary.md · нормы: docs/03 · карта PID машины: docs/08</footer>
 </div>
 
 <script>
@@ -90,13 +90,10 @@
 const ICONS = {
   temp:   '<path d="M12.5 4v9.2a4 4 0 1 1-3 0V4a1.5 1.5 0 0 1 3 0Z"/><circle cx="11" cy="17.2" r="1.7"/>',
   engine: '<path d="M6.5 8h4V6h4v2h3.5l3 3v6.5h-4l-2.5 2.5H8L5.5 17H4v-6h2.5Z"/><path d="M10 12h5M4.5 11H2.8M20 12h2.2"/>',
-  cvt:    '<circle cx="9.5" cy="9.5" r="3.4"/><circle cx="16.5" cy="15.5" r="3.4"/><path d="M12 11.6l2.4 1.8M15.4 8.3l1.4-2.6M7.6 15.5H5.2M18.6 12.4l2-.9"/>',
   clock:  '<circle cx="12.5" cy="12.5" r="8.5"/><path d="M12.5 7.5v5l3.4 2"/>',
   air:    '<path d="M3 9h11a3 3 0 1 0-3-3M3 13h15a3 3 0 1 1-3 3M3 17h7"/>',
   trim:   '<path d="M4 8h17M4 17h17"/><circle cx="9" cy="8" r="2.4"/><circle cx="16" cy="17" r="2.4"/>',
-  fuel:   '<path d="M6 21V5a2 2 0 0 1 2-2h5a2 2 0 0 1 2 2v16M4 21h13M15 9h3a2 2 0 0 1 2 2v6a1.6 1.6 0 0 0 3.2 0V9.5L20.5 6"/><path d="M8.5 7h3v3h-3z"/>',
   batt:   '<rect x="3" y="8" width="17" height="9.5" rx="2"/><path d="M20.5 11v3.5M7.5 11v3.5M11 11v3.5"/>',
-  boost:  '<path d="M12.5 4v3.2M12.5 4a8.5 8.5 0 0 1 8.4 7.3M12.5 4a8.5 8.5 0 0 0-8.4 7.3"/><circle cx="12.5" cy="15" r="5.5"/><path d="M12.5 15l3-3M12.5 15l-2.6 2.6"/>',
   oil:    '<path d="M12.5 3.5S6.5 10 6.5 14.3a6 6 0 0 0 12 0C18.5 10 12.5 3.5 12.5 3.5Z"/>',
 };
 document.querySelectorAll('.ic').forEach(el=>{
@@ -114,11 +111,9 @@ const STATS = [
   ['engine','Двигатель','холостой ход','rpm', c=>fmt(c.rpm,0)],
   ['temp','ОЖ','coolant','°C', c=>fmt(c.coolant), c=>c.coolant!=null&&c.coolant>=80],
   ['oil','Масло','oil_temp','°C', c=>fmt(c.oil_temp)],
-  ['cvt','CVT','21 82 → cvt_temp','°C', c=>fmt(c.cvt_temp)],
+  ['temp','Катализатор','catalyst','°C', c=>fmt(c.catalyst,0)],
   ['clock','Время сессии','от старта','', c=>mmss(c.ts)],
   ['air','MAF','maf','g/s', c=>fmt(c.maf)],
-  ['boost','Наддув','map − баро','kPa', c=>fmt(c.boost)],
-  ['fuel','Рампа','rail_p','kPa', c=>fmt(c.rail_p,0)],
   ['trim','Коррекции','STFT / LTFT','%', c=>c.stft==null?'—':`${fmt(c.stft)} / ${fmt(c.ltft)}`],
   ['batt','Бортсеть','voltage','V', c=>fmt(c.voltage)],
 ];
@@ -134,8 +129,8 @@ statsEl.querySelectorAll('.ic').forEach(el=>{
 });
 
 /* ---------- графики (цвета в hex — canvas не понимает CSS-переменные) ---------- */
-const C = {coolant:'#58a6ff',oil:'#f0883a',cvt:'#bc8cff',iat:'#7ee787',rpm:'#ff7b72',
-           maf:'#79c0ff',boost:'#d2a8ff',stft:'#ff6b6b',ltft:'#ffa94d',rail:'#ffd166',volt:'#63e6be'};
+const C = {coolant:'#58a6ff',oil:'#f0883a',iat:'#7ee787',rpm:'#ff7b72',
+           maf:'#79c0ff',cat:'#bc8cff',stft:'#ff6b6b',ltft:'#ffa94d',volt:'#63e6be'};
 const mkChart = (id, sets, y1=null)=>{
   const ds = sets.map(s=>({label:s.l, data:[], borderColor:s.c, backgroundColor:s.c+'22',
     borderWidth:2, pointRadius:0, tension:.3, yAxisID:s.y||'y', borderDash:s.d||[]}));
@@ -155,13 +150,13 @@ const mkChart = (id, sets, y1=null)=>{
   });
 };
 const chTemps = mkChart('chTemps',[
-  {l:'ОЖ',c:C.coolant},{l:'Масло',c:C.oil},{l:'IAT',c:C.iat},{l:'CVT',c:C.cvt}]);
+  {l:'ОЖ',c:C.coolant},{l:'Масло',c:C.oil},{l:'IAT',c:C.iat}]);
 const chRpm   = mkChart('chRpm',[{l:'RPM',c:C.rpm}]);
-const chAir   = mkChart('chAir',[{l:'MAF g/s',c:C.maf},{l:'Boost kPa',c:C.boost,y:'y1'}]);
+const chAir   = mkChart('chAir',[{l:'MAF g/s',c:C.maf}]);
 const chTrims = mkChart('chTrims',[
   {l:'STFT',c:C.stft},{l:'LTFT',c:C.ltft},
   {l:'+10%',c:'rgba(240,246,252,.25)',d:[4,4]},{l:'-10%',c:'rgba(240,246,252,.25)',d:[4,4]}]);
-const chRail  = mkChart('chRail',[{l:'Рампа kPa',c:C.rail}]);
+const chCat   = mkChart('chCat',[{l:'Катализатор °C',c:C.cat}]);
 const chVolt  = mkChart('chVolt',[{l:'V',c:C.volt}]);
 
 /* ---------- живые данные ---------- */
@@ -172,9 +167,6 @@ function ingest(row){
   for (const k of cols){
     (series[k] ||= []).push(k==='ts'?+row[k]:(row[k]==null||row[k]===''?null:+row[k]));
   }
-  // производная величина: наддув = MAP − барометр (нет колонки в sensors.COLUMNS)
-  (series.boost ||= []).push(
-    (row.map!=null&&row.map!==''&&row.baro!=null&&row.baro!=='') ? +row.map - +row.baro : null);
   // константные границы ±10% на графике тримов
   while (series._hi.length < series.ts.length) series._hi.push(10);
   while (series._lo.length < series.ts.length) series._lo.push(-10);
@@ -182,15 +174,14 @@ function ingest(row){
 function repaint(){
   const x = series.ts;
   const fill=(ch, map)=>{ ch.data.labels=x; ch.data.datasets.forEach(ds=>{ ds.data = map[ds.label]||[]; }); ch.update('none'); };
-  fill(chTemps,{ОЖ:series.coolant,'Масло':series.oil_temp,IAT:series.iat,CVT:series.cvt_temp});
+  fill(chTemps,{ОЖ:series.coolant,'Масло':series.oil_temp,IAT:series.iat});
   fill(chRpm,{RPM:series.rpm});
-  fill(chAir,{'MAF g/s':series.maf,'Boost kPa':series.boost});
+  fill(chAir,{'MAF g/s':series.maf});
   fill(chTrims,{STFT:series.stft,LTFT:series.ltft,'+10%':series._hi,'-10%':series._lo});
-  fill(chRail,{'Рампа kPa':series.rail_p});
+  fill(chCat,{'Катализатор °C':series.catalyst});
   fill(chVolt,{V:series.voltage});
   // статкарты
   const last = {}; for (const k of cols) last[k]=series[k]?.at(-1);
-  last.boost = (last.map!=null&&last.baro!=null)? last.map-last.baro : null;
   last.trim = (last.stft!=null)? last.stft : null;
   STATS.forEach((s,i)=>{
     const el=document.getElementById('st'+i);

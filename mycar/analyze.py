@@ -45,8 +45,9 @@ def analyze_session(csv_path: Path) -> Path:
     cols = [c for c in rows[0] if c != "ts" and c not in sensors.TEXT_COLUMNS]
     per_col = {c: _stats([r[c] for r in rows]) for c in cols}
 
-    # derived boost kPa (map - baro)
-    boost = _stats([r["map"] - r["baro"] for r in rows if r["map"] is not None and r["baro"] is not None])
+    # derived boost kPa (map - baro) — no-op where the ECU hides MAP (NGX10)
+    boost = _stats([r["map"] - r["baro"] for r in rows
+                    if r.get("map") is not None and r.get("baro") is not None])
 
     coolant_rate = None
     t0c, t_end_c = rows[0]["coolant"], rows[-1]["coolant"]
