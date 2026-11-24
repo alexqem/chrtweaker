@@ -29,7 +29,10 @@ class State:
     index-based rows[sent:] slice would silently stop delivering at maxlen).
     """
 
-    def __init__(self, maxlen: int = 4000):
+    def __init__(self, maxlen: int = 6000):
+        # 1 Hz sampling; 6000 rows ≈ 100 min — the whole session (45 min cap +
+        # tail + hold window) always fits, so a page reload shows the full
+        # current-session charts from the snapshot.
         self._lock = threading.Lock()
         self._rows: deque = deque(maxlen=maxlen)
         self._meta: dict = {}

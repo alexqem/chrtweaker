@@ -51,6 +51,10 @@
   .chip{font-size:11.5px;color:var(--tx2);border:1px solid var(--line);
         background:var(--card2);border-radius:8px;padding:4px 10px}
   footer{color:var(--tx2);font-size:11.5px;margin-top:14px}
+  #reset{cursor:pointer;color:var(--tx2);font:600 11.5px/1 system-ui,sans-serif;
+         padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:var(--card2)}
+  #reset:hover{color:var(--tx);border-color:rgba(240,246,252,.25)}
+  .reset-note{font-size:11px;color:var(--ok);opacity:0;transition:opacity .4s}
 </style>
 </head>
 <body>
@@ -62,6 +66,8 @@
     <span class="spacer"></span>
     <span class="pill off" id="live"><span class="live-dot" style="visibility:hidden"></span><span id="live-tx">нет связи</span></span>
     <span class="pill" id="clock"></span>
+    <button id="reset" title="Очистить вид и начать отрисовку с нуля. Логи (CSV/БД) не удаляются — запись продолжается.">↺ сброс вида</button>
+    <span class="reset-note" id="reset-note"></span>
   </header>
 
   <div class="grid cards" id="stats"></div>
@@ -143,7 +149,8 @@ const mkChart = (id, sets, y1=null)=>{
     data:{datasets:ds},
     options:{
       animation:false, maintainAspectRatio:false, interaction:{mode:'nearest',intersect:false},
-      plugins:{legend:{labels:{color:'#8b949e',boxWidth:8,boxHeight:2,font:{size:10.5}}}},
+      plugins:{legend:{labels:{color:'#8b949e',boxWidth:8,boxHeight:2,font:{size:10.5}}},
+               tooltip:{callbacks:{title:it=>mmss(it[0].parsed.x)}}},
       scales:{
         x:{type:'linear',ticks:{color:'#8b949e',font:{size:10},maxTicksLimit:8,callback:v=>mmss(v)},
            grid:{color:'rgba(240,246,252,.05)'}},
@@ -166,24 +173,71 @@ const chTrims = mkChart('chTrims',[
 const chCat   = mkChart('chCat',[{l:'Катализатор °C',c:C.cat}]);
 const chVolt  = mkChart('chVolt',[{l:'V',c:C.volt}]);
 
-/* ---------- живые данные ---------- */
-const series = {};   // key -> array of numbers/null (по sensors.COLUMNS)
+/* ---------- модель данных (единая точка записи) ----------
+   Правила:
+   - snapshot (каждое подключение WS) пересобирает вид с нуля — после F5/реконнекта
+     всегда видна вся текущая сессия, старое поверх нового не рисуется;
+   - дубли отсеиваются по seq (второй сокет / повторная доставка не страшны);
+   - кнопка «сброс» прячет ряды с seq <= resetSeq и ось начинается с нуля;
+     логи на сервере (CSV/БД/буфер) при этом НЕ трогаются — запись идёт дальше. */
+const series = {};   // key -> массивы, выровненные по индексу (ts, COLUMNS, bands)
 let cols = [];
+let lastSeq = 0;     // максимальный увиденный seq — дедупликация
+let resetSeq = 0;    // ряды с seq <= него скрыты кнопкой Reset
+let viewT0 = null;   // начало оси x вида = ts первого видимого ряда
 
-function ingest(row){
-  for (const k of cols){
-    (series[k] ||= []).push(k==='ts'?+row[k]:(row[k]==null||row[k]===''?null:+row[k]));
+const BANDS = {_hi:10, _lo:-10, _th84:84, _th80:80, _idleHi:780, _idleLo:680};
+function ensureBands(){
+  const n = (series.ts || []).length;
+  for (const [k,v] of Object.entries(BANDS)){
+    const a = series[k] ||= [];
+    while (a.length < n) a.push(v);
   }
-  // константные границы ±10% на графике тримов
-  while (series._hi.length < series.ts.length) series._hi.push(10);
-  while (series._lo.length < series.ts.length) series._lo.push(-10);
-  // полосы норм (docs/03): термостат 80…84 °C, ХХ CVT 680…780
-  while (series._th84.length < series.ts.length) { series._th84.push(84); series._th80.push(80); }
-  while (series._idleHi.length < series.ts.length) { series._idleHi.push(780); series._idleLo.push(680); }
 }
+function resetView(){
+  for (const k of Object.keys(series)) delete series[k];
+  cols.forEach(k => { series[k] = []; });
+  viewT0 = null;
+}
+function pushRow(row){
+  for (const k of cols){
+    (series[k] ||= []).push(k==='ts' ? +row[k] : (row[k]==null||row[k]==='' ? null : +row[k]));
+  }
+  if (viewT0 == null && series.ts?.length) viewT0 = series.ts[0];
+  ensureBands();
+}
+function ingest(row){            // живые samples: дедуп + фильтр Reset
+  if (row.seq != null){
+    if (row.seq <= lastSeq || row.seq <= resetSeq) return;
+    lastSeq = row.seq;
+  }
+  pushRow(row);
+}
+function absorbSnapshot(msg){    // авторитетная пересборка вида с нуля
+  cols = msg.columns;
+  resetView();
+  for (const row of msg.rows){
+    if (row.seq != null){
+      if (row.seq <= resetSeq) continue;
+      lastSeq = Math.max(lastSeq, row.seq);
+    }
+    pushRow(row);
+  }
+}
+function viewX(){                // ось x вида: 0 = старт сессии или момент Reset
+  const ts = series.ts || [], t0 = viewT0 ?? 0;
+  return ts.map(t => t - t0);
+}
+
 function repaint(){
-  const x = series.ts;
-  const fill=(ch, map)=>{ ch.data.labels=x; ch.data.datasets.forEach(ds=>{ ds.data = map[ds.label]||[]; }); ch.update('none'); };
+  const xv = viewX();
+  const fill=(ch, map)=>{
+    ch.data.datasets.forEach(ds=>{
+      const src = map[ds.label] || [];
+      ds.data = src.map((y,i)=>({x:xv[i], y}));
+    });
+    ch.update('none');
+  };
   fill(chTemps,{ОЖ:series.coolant,'Масло':series.oil_temp,IAT:series.iat,
     '84 термостат':series._th84,'80 термостат':series._th80});
   fill(chRpm,{RPM:series.rpm,'780 ХХ-норма':series._idleHi,'680 ХХ-норма':series._idleLo});
@@ -193,11 +247,12 @@ function repaint(){
   fill(chVolt,{V:series.voltage});
   // статкарты
   const last = {}; for (const k of cols) last[k]=series[k]?.at(-1);
+  last.ts = xv.at(-1) ?? 0;   // «Время сессии» = время видимого окна
   last.trim = (last.stft!=null)? last.stft : null;
-  // скорость прогрева: °C/мин за последние 60 с
-  const t60 = (series.ts.at(-1) ?? 0) - 60;
+  // скорость прогрева: °C/мин за последние 60 с (разности ts от сдвига вида не зависят)
+  const t60 = (series.ts?.at(-1) ?? 0) - 60;
   let ref = null;
-  for (let i = series.ts.length - 1; i >= 0; i--) { if (series.ts[i] <= t60) { ref = series.coolant[i]; break; } }
+  for (let i = (series.ts?.length ?? 0) - 1; i >= 0; i--) { if (series.ts[i] <= t60) { ref = series.coolant[i]; break; } }
   const nowC = series.coolant?.at(-1);
   last._rate = (ref!=null && nowC!=null) ? nowC - ref : null;
   STATS.forEach((s,i)=>{
@@ -223,24 +278,35 @@ function metaUpd(m){
   const w=document.getElementById('warmed');
   if (m.warm_at_s!=null){ w.textContent=`✔ прогрев ${mmss(m.warm_at_s)}`; w.className='pill on'; }
   const c=document.getElementById('clock');
-  c.innerHTML=`<span class="ic" style="width:25px;height:25px"><svg width="25" height="25" viewBox="0 0 25 25" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12.5" cy="12.5" r="8.5"/><path d="M12.5 7.5v5l3.4 2"/></svg></span> ${mmss(m.elapsed_s||series.ts?.at(-1)||0)}`;
+  c.innerHTML=`<span class="ic" style="width:25px;height:25px"><svg width="25" height="25" viewBox="0 0 25 25" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12.5" cy="12.5" r="8.5"/><path d="M12.5 7.5v5l3.4 2"/></svg></span> ${mmss(viewX().at(-1) ?? 0)}`;
 }
 
-let ws=null;
+/* ---------- кнопка Reset: только вид, логи не трогаются ---------- */
+document.getElementById('reset').addEventListener('click', ()=>{
+  resetSeq = lastSeq;
+  resetView();
+  repaint();
+  const n=document.getElementById('reset-note');
+  n.textContent='вид очищен · логи пишутся дальше';
+  n.style.opacity=1;
+  setTimeout(()=>{ n.style.opacity=0; }, 4000);
+});
+
+/* ---------- WS: один живой сокет, колбэки мёртвых поколений игнорируются ---------- */
+let ws=null, wsGen=0;
 function connect(){
-  ws = new WebSocket(`ws://${location.host}/ws`);
+  const gen = ++wsGen;
+  if (ws){ ws.onclose = null; try{ ws.close(); }catch(e){} }
+  const sock = new WebSocket(`ws://${location.host}/ws`);
+  ws = sock;
   const live=document.getElementById('live'), tx=document.getElementById('live-tx'), dot=live.querySelector('.live-dot');
-  ws.onopen = ()=>{ tx.textContent='онлайн'; dot.style.visibility='visible'; live.className='pill on'; };
-  ws.onclose = ()=>{ tx.textContent='нет связи'; dot.style.visibility='hidden'; live.className='pill off'; setTimeout(connect,2000); };
-  ws.onmessage = ev=>{
+  sock.onopen = ()=>{ if (gen!==wsGen) return; tx.textContent='онлайн'; dot.style.visibility='visible'; live.className='pill on'; };
+  sock.onclose = ()=>{ if (gen!==wsGen) return; tx.textContent='нет связи'; dot.style.visibility='hidden'; live.className='pill off'; setTimeout(connect,2000); };
+  sock.onmessage = ev=>{
+    if (gen!==wsGen) return;
     const msg = JSON.parse(ev.data);
-    if (msg.type==='snapshot'){
-      cols = msg.columns;
-      series._hi=[]; series._lo=[];
-      msg.rows.forEach(ingest);
-    } else if (msg.type==='samples'){
-      msg.rows.forEach(ingest);
-    }
+    if (msg.type==='snapshot') absorbSnapshot(msg);
+    else if (msg.type==='samples') msg.rows.forEach(ingest);
     metaUpd(msg.meta);
     repaint();
   };
