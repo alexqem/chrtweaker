@@ -139,12 +139,12 @@ def trend() -> str:
             "       AVG(f.ltft), MIN(f.ltft), MAX(f.ltft), COUNT(f.ltft) "
             "FROM sessions s "
             "LEFT JOIN samples f ON f.session_id = s.id AND f.ltft IS NOT NULL "
-            "WHERE s.aborted IS NOT 1 "
+            "WHERE s.aborted IS NULL "  # aborted = text reason in meta, not a flag
             "  AND COALESCE(json_extract(s.meta_json, '$.sim'), 0) != 1 "
             "GROUP BY s.id ORDER BY s.started_at"
         ).fetchall()
         skipped = conn.execute(
-            "SELECT COUNT(*) FROM sessions WHERE aborted = 1 "
+            "SELECT COUNT(*) FROM sessions WHERE aborted IS NOT NULL "
             "OR COALESCE(json_extract(meta_json, '$.sim'), 0) = 1"
         ).fetchone()[0]
         if not sessions:

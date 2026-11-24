@@ -243,6 +243,9 @@ def capture(port: str | None, simulate: bool, max_minutes: float, sim_time_scale
                 values["cvt_raw"] = cvt_raw
 
                 writer.writerow({"ts": round(ts, 1), **values})
+                f.flush()  # Python 3.14 buffers text files up to ~1 MB (APFS
+                # st_blksize): a hard kill used to take the whole session with
+                # it. One flush per row (~0.3 Hz) is free — data hits the disk.
                 if state:
                     state.push({"ts": round(ts, 1), **values})
 

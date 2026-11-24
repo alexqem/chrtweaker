@@ -54,8 +54,13 @@ def main():
         doctor()
     elif args.cmd == "capture":
         import signal
+        import sys
 
         from mycar.capture import capture
+
+        # line-buffered console log: with nohup/redirect Python 3.14 buffers
+        # stdout up to ~1 MB — a killed process loses every diagnostic line
+        sys.stdout.reconfigure(line_buffering=True)
 
         # graceful stop: SIGTERM/Ctrl+C must unwind finally-blocks so the
         # serial port is closed properly (cheap ELM clones hang otherwise)
