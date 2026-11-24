@@ -493,6 +493,24 @@ def parse_mode09_hex(reply: str, pid: str = "06", ecu: str | None = None) -> str
     return bytes(payload[1:]).hex().upper() or None
 
 
+def read_dtc(conn) -> dict[str, list[str]]:
+    """Stored/pending/permanent codes (Mode 03/07/0A) at session end. Never raises.
+
+    Returns {"03": ["7E8: P0133", ...], ...}; empty list = clean that mode.
+    """
+    out: dict[str, list[str]] = {}
+    for mode in DTC_MODES:
+        try:
+            r = conn.query_raw(mode)
+            if not r or "NO DATA" in r.upper():
+                out[mode] = []
+                continue
+            out[mode] = [f"{ecu}: {code}" for ecu, code in parse_dtc_reply(r, marker_for(mode))]
+        except Exception:
+            out[mode] = []
+    return out
+
+
 def read_car_id(conn) -> dict:
     """VIN / CalID / CVN / ECU name (Mode 09) — per-ECU, functional, safe.
 

@@ -111,12 +111,56 @@ def import_session(csv_path) -> int | None:
 
 
 def import_all() -> int:
-    """Import every logs/*.csv not yet in the DB. Returns number imported."""
+    """Import every logs/*.csv not yet in the DB. Returns number imported.
+
+    Skips CSVs without a .meta.json: that means either a session still being
+    captured (meta is written at save) or a hard crash — partial rows must not
+    pollute the trends.
+    """
     n = 0
     for p in sorted(config.LOGS_DIR.glob("*.csv")):
+        if not p.with_suffix(".meta.json").exists():
+            continue
         if import_session(p) is not None:
             n += 1
     return n
+
+
+def trend() -> str:
+    """Cross-session LTFT / warm-up trend — the long game for docs/06.
+
+    LTFT is a learned value, so per-session mean/min/max show the adaptation
+    drift; compare before/after an adaptation reset (battery off 30+ min).
+    """
+    with _connect() as conn:
+        sessions = conn.execute(
+            "SELECT id, started_at, mode, start_coolant_c, warm_at_s FROM sessions ORDER BY started_at"
+        ).fetchall()
+        if not sessions:
+            return "DB is empty — run capture or `python -m mycar db` to import logs/."
+        out = ["# LTFT trend (logs/chr.db)", "",
+               "| date | mode | start ECT | warm-up | LTFT mean | LTFT min..max | rows |",
+               "|---|---|---|---|---|---|---|"]
+        means = []
+        for sid, started_at, mode, start_c, warm_s in sessions:
+            row = conn.execute(
+                "SELECT AVG(ltft), MIN(ltft), MAX(ltft), COUNT(ltft) FROM samples "
+                "WHERE session_id=? AND ltft IS NOT NULL", (sid,),
+            ).fetchone()
+            avg, lo, hi, n = row
+            if not n:
+                out.append(f"| {(started_at or '')[:16].replace('T', ' ')} | {mode} | "
+                           f"{start_c or '—'} | {f'{warm_s/60:.1f} min' if warm_s is not None else '—'} | "
+                           f"— | — | 0 |")
+                continue
+            means.append(avg)
+            out.append(f"| {(started_at or '')[:16].replace('T', ' ')} | {mode} | "
+                       f"{start_c or '—'} | {f'{warm_s/60:.1f} min' if warm_s is not None else '—'} | "
+                       f"{avg:+.1f}% | {lo:+.1f}…{hi:+.1f}% | {n} |")
+        if len(means) >= 2:
+            out += ["", f"LTFT drift: {means[0]:+.1f}% → {means[-1]:+.1f}% "
+                    f"({means[-1] - means[0]:+.1f} pp over {len(means)} sessions)"]
+        return "\n".join(out)
 
 
 def summary() -> str:

@@ -61,6 +61,16 @@ def _poll_multi(conn, groups) -> dict[str, list[int]] | None:
     return out
 
 
+def auto_analyze(csv_path, log):
+    """Print the session summary right after capture (manual `analyze` still works)."""
+    try:
+        from mycar import analyze
+        out = analyze.analyze_session(csv_path)
+        log(f"Auto-analysis: {out}")
+    except Exception as e:  # analysis must never break the session
+        log(f"auto-analysis skipped: {e}")
+
+
 def save_session(csv_path, meta_path, meta, aborted, log):
     """Write meta.json and mirror the session into the DB.
 
@@ -273,11 +283,19 @@ def capture(port: str | None, simulate: bool, max_minutes: float, sim_time_scale
                 time.sleep(config.SAMPLE_INTERVAL_S)
 
         meta["completed"] = True  # absent in meta if the loop was interrupted
+        try:  # health snapshot at session end while the link is still up
+            meta["dtc"] = toyota.read_dtc(conn)
+            found = [f"{m}: {', '.join(c)}" for m, c in meta["dtc"].items() if c]
+            log("DTC after session: " + ("; ".join(found) if found else "no codes (03/07 clean)"))
+        except Exception as e:
+            log(f"DTC read skipped: {e}")
         return str(csv_path)
     finally:
         # the session is ALWAYS saved: an interrupted capture (Ctrl+C) must
         # still write meta.json + the DB mirror (the CSV is already on disk)
         save_session(csv_path, meta_path, meta, aborted, log)
+        if meta and meta.get("completed"):
+            auto_analyze(csv_path, log)
         conn.close()
         if state:
             state.set_meta(finished=True, finished_at=datetime.now(timezone.utc).isoformat())

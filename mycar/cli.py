@@ -46,6 +46,8 @@ def main():
     pp.add_argument("--sweep", action="store_true",
                     help="add the empirical Mode-01 00..FF sweep + raw Mode 09 (~2 min on the car)")
 
+    tp = sub.add_parser("trend", help="cross-session LTFT / warm-up trends from logs/chr.db")
+
     args = ap.parse_args()
 
     if args.cmd == "doctor":
@@ -78,6 +80,9 @@ def main():
         run_dtc(args)
     elif args.cmd == "probe":
         run_probe(args)
+    elif args.cmd == "trend":
+        from mycar import db
+        print(db.trend())
 
 
 def run_dtc(args):
