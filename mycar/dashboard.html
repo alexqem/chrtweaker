@@ -110,13 +110,17 @@ const mmss = s => { s=Math.max(0,Math.round(s)); return `${String(Math.floor(s/6
 const STATS = [
   ['engine','Двигатель','холостой ход','rpm', c=>fmt(c.rpm,0)],
   ['temp','ОЖ','coolant','°C', c=>fmt(c.coolant), c=>c.coolant!=null&&c.coolant>=80],
+  ['temp','Прогрев','скорость ОЖ','°C/мин', c=>c._rate==null?'—':(c._rate>=0?'+':'')+fmt(c._rate)],
   ['oil','Масло','oil_temp','°C', c=>fmt(c.oil_temp)],
   ['temp','Катализатор','catalyst','°C', c=>fmt(c.catalyst,0)],
+  ['engine','Петля','fuel_status','', c=>loopLabel(c.fuel_status), c=>c.fuel_status===2],
   ['clock','Время сессии','от старта','', c=>mmss(c.ts)],
   ['air','MAF','maf','g/s', c=>fmt(c.maf)],
   ['trim','Коррекции','STFT / LTFT','%', c=>c.stft==null?'—':`${fmt(c.stft)} / ${fmt(c.ltft)}`],
   ['batt','Бортсеть','voltage','V', c=>fmt(c.voltage)],
 ];
+const loopLabel = v => v==null?'—':({1:'OPEN · прогрев',2:'CLOSED',4:'OPEN · нагрузка',
+                                     8:'OPEN · сбой',16:'CLOSED · сбой'})[v]||`код ${v}`;
 const statsEl = document.getElementById('stats');
 statsEl.innerHTML = STATS.map((s,i)=>`
   <div class="card stat" id="st${i}">
@@ -150,8 +154,11 @@ const mkChart = (id, sets, y1=null)=>{
   });
 };
 const chTemps = mkChart('chTemps',[
-  {l:'ОЖ',c:C.coolant},{l:'Масло',c:C.oil},{l:'IAT',c:C.iat}]);
-const chRpm   = mkChart('chRpm',[{l:'RPM',c:C.rpm}]);
+  {l:'ОЖ',c:C.coolant},{l:'Масло',c:C.oil},{l:'IAT',c:C.iat},
+  {l:'84 термостат',c:'rgba(240,246,252,.22)',d:[4,4]},{l:'80 термостат',c:'rgba(240,246,252,.22)',d:[4,4]}]);
+const chRpm   = mkChart('chRpm',[
+  {l:'RPM',c:C.rpm},
+  {l:'780 ХХ-норма',c:'rgba(240,246,252,.22)',d:[4,4]},{l:'680 ХХ-норма',c:'rgba(240,246,252,.22)',d:[4,4]}]);
 const chAir   = mkChart('chAir',[{l:'MAF g/s',c:C.maf}]);
 const chTrims = mkChart('chTrims',[
   {l:'STFT',c:C.stft},{l:'LTFT',c:C.ltft},
@@ -170,12 +177,16 @@ function ingest(row){
   // константные границы ±10% на графике тримов
   while (series._hi.length < series.ts.length) series._hi.push(10);
   while (series._lo.length < series.ts.length) series._lo.push(-10);
+  // полосы норм (docs/03): термостат 80…84 °C, ХХ CVT 680…780
+  while (series._th84.length < series.ts.length) { series._th84.push(84); series._th80.push(80); }
+  while (series._idleHi.length < series.ts.length) { series._idleHi.push(780); series._idleLo.push(680); }
 }
 function repaint(){
   const x = series.ts;
   const fill=(ch, map)=>{ ch.data.labels=x; ch.data.datasets.forEach(ds=>{ ds.data = map[ds.label]||[]; }); ch.update('none'); };
-  fill(chTemps,{ОЖ:series.coolant,'Масло':series.oil_temp,IAT:series.iat});
-  fill(chRpm,{RPM:series.rpm});
+  fill(chTemps,{ОЖ:series.coolant,'Масло':series.oil_temp,IAT:series.iat,
+    '84 термостат':series._th84,'80 термостат':series._th80});
+  fill(chRpm,{RPM:series.rpm,'780 ХХ-норма':series._idleHi,'680 ХХ-норма':series._idleLo});
   fill(chAir,{'MAF g/s':series.maf});
   fill(chTrims,{STFT:series.stft,LTFT:series.ltft,'+10%':series._hi,'-10%':series._lo});
   fill(chCat,{'Катализатор °C':series.catalyst});
@@ -183,6 +194,12 @@ function repaint(){
   // статкарты
   const last = {}; for (const k of cols) last[k]=series[k]?.at(-1);
   last.trim = (last.stft!=null)? last.stft : null;
+  // скорость прогрева: °C/мин за последние 60 с
+  const t60 = (series.ts.at(-1) ?? 0) - 60;
+  let ref = null;
+  for (let i = series.ts.length - 1; i >= 0; i--) { if (series.ts[i] <= t60) { ref = series.coolant[i]; break; } }
+  const nowC = series.coolant?.at(-1);
+  last._rate = (ref!=null && nowC!=null) ? nowC - ref : null;
   STATS.forEach((s,i)=>{
     const el=document.getElementById('st'+i);
     const v=el.querySelector('.v'); const val=s[4](last);

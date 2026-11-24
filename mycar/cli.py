@@ -24,6 +24,8 @@ def main():
     cp.add_argument("--hold", action="store_true",
                     help="keep the dashboard alive after the session (up to 1 h TTL); "
                          "blocks the console meanwhile (default: exit with the session)")
+    cp.add_argument("--tail", type=float, default=None, metavar="SEC",
+                    help=f"seconds to keep logging after warm-up (default {config.COOLDOWN_AFTER_WARM_S})")
 
     az = sub.add_parser("analyze", help="summarize the latest session into stats/")
     az.add_argument("file", nargs="?", help="specific logs/<session>.csv (default: latest)")
@@ -59,7 +61,7 @@ def main():
         try:
             capture(args.port, args.sim, args.max_minutes, args.sim_speed,
                     args.dashboard, args.dashboard_port, multi=not args.no_multi,
-                    hold=args.hold)
+                    hold=args.hold, tail_s=args.tail)
         except (KeyboardInterrupt, SystemExit):
             print("Stopped.")
     elif args.cmd == "analyze":

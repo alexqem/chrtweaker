@@ -88,12 +88,14 @@ def save_session(csv_path, meta_path, meta, aborted, log):
 
 def capture(port: str | None, simulate: bool, max_minutes: float, sim_time_scale: float = 1.0,
             dashboard: bool = True, dashboard_port: int = config.DASHBOARD_PORT,
-            multi: bool = True, hold: bool = False, log=print) -> str:
+            multi: bool = True, hold: bool = False, tail_s: float | None = None, log=print) -> str:
     """Run one cold-start session. Returns path of the written CSV.
 
     hold=False (default): the process exits when the session ends (the
     dashboard dies with it — run analyze right after). hold=True: the
     dashboard stays live until its 1 h TTL; the console blocks meanwhile.
+    tail_s overrides how long to keep logging after warm-up (docs/06 wants
+    a 3-5 min warm-idle tail; default config.COOLDOWN_AFTER_WARM_S).
     """
     from mycar import connection
 
@@ -166,6 +168,7 @@ def capture(port: str | None, simulate: bool, max_minutes: float, sim_time_scale
 
         started_at = time.monotonic()
         cvt_misses, cvt_skip = 0, False  # cvt: give up after CVT_GIVE_UP_CYCLES empty tries
+        tail = config.COOLDOWN_AFTER_WARM_S if tail_s is None else tail_s
         with open(csv_path, "w", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=sensors.COLUMNS)
             writer.writeheader()
@@ -264,7 +267,7 @@ def capture(port: str | None, simulate: bool, max_minutes: float, sim_time_scale
                     f"cvt {fmt(values['cvt_temp']):>5}{warm_note}"
                 )
 
-                if warmed and ts - meta["warm_at_s"] >= config.COOLDOWN_AFTER_WARM_S:
+                if warmed and ts - meta["warm_at_s"] >= tail:
                     log("Warm-up + cooldown window complete.")
                     break
                 time.sleep(config.SAMPLE_INTERVAL_S)
