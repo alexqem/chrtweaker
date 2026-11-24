@@ -3,82 +3,317 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>C-HR NGX10 · Cold Start</title>
+<title>C-HR NGX10 · Cold Start Telemetry</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
-  :root{
-    --bg:#0d1117; --card:#161b22; --card2:#1c2330; --line:rgba(240,246,252,.08);
-    --tx:#e6edf3; --tx2:#8b949e; --coolant:#58a6ff; --oil:#f0883a;
-    --iat:#7ee787; --rpm:#ff7b72; --maf:#79c0ff; --cat:#bc8cff;
-    --stft:#ff6b6b; --ltft:#ffa94d; --volt:#63e6be;
-    --ok:#3fb950; --warn:#d29922; --r:14px;
+  :root {
+    --background: #09090b;
+    --foreground: #f4f4f5;
+    --card: #111114;
+    --card-foreground: #f4f4f5;
+    --secondary: #18181b;
+    --secondary-foreground: #d4d4d8;
+    --muted: #18181b;
+    --muted-foreground: #94949e;
+    --border: #27272a;
+    --border-subtle: #1e1e22;
+    --radius: 8px;
+    --radius-sm: 6px;
+
+    /* Semantic Sensor Accents */
+    --coolant: #38bdf8;
+    --oil: #fb923c;
+    --iat: #4ade80;
+    --rpm: #f87171;
+    --maf: #60a5fa;
+    --cat: #c084fc;
+    --stft: #f43f5e;
+    --ltft: #f97316;
+    --volt: #2dd4bf;
+    --ok: #22c55e;
+    --warn: #eab308;
   }
-  *{box-sizing:border-box}
-  body{margin:0;background:radial-gradient(1200px 600px at 70% -10%,#16202c 0%,var(--bg) 60%);
-       color:var(--tx);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
-  .wrap{max-width:1180px;margin:0 auto;padding:20px 16px 40px}
-  header{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:18px}
-  header h1{font-size:18px;margin:0;font-weight:650;letter-spacing:.2px}
-  header .sub{color:var(--tx2);font-size:12.5px}
-  .pill{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:999px;
-        font-size:12px;font-weight:600;border:1px solid var(--line);background:var(--card2)}
-  .pill.cold{color:#ffd8a8;border-color:#f0883a55;background:#f0883a18}
-  .pill.warm{color:#a5d6ff;border-color:#58a6ff55;background:#58a6ff18}
-  .pill.on{color:#aff5b4;border-color:#3fb95055;background:#3fb95015}
-  .pill.off{color:var(--tx2)}
-  .spacer{flex:1}
-  .live-dot{width:8px;height:8px;border-radius:50%;background:var(--ok);
-            box-shadow:0 0 0 0 #3fb95066;animation:pulse 1.6s infinite}
-  @keyframes pulse{70%{box-shadow:0 0 0 7px #3fb95000}100%{box-shadow:0 0 0 0 #3fb95000}}
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--background);
+    color: var(--foreground);
+    font: 13px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px 20px 48px;
+  }
 
-  .grid{display:grid;gap:12px}
-  .cards{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
-  .charts{grid-template-columns:repeat(auto-fit,minmax(330px,1fr))}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px}
-  .stat{display:flex;gap:11px;align-items:flex-start}
-  .ic{flex:0 0 25px;color:var(--tx2);display:flex}
-  .stat .k{font-size:11.5px;color:var(--tx2);letter-spacing:.3px;text-transform:uppercase}
-  .stat .v{font-size:24px;font-weight:640;font-variant-numeric:tabular-nums;line-height:1.15}
-  .stat .v small{font-size:12px;color:var(--tx2);font-weight:500;margin-left:3px}
-  .stat .n{font-size:11.5px;color:var(--tx2)}
-  .stat.hi .v{color:var(--warn)}
+  /* Header */
+  header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border-subtle);
+    margin-bottom: 16px;
+  }
+  header h1 {
+    font-size: 14.5px;
+    margin: 0;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--foreground);
+  }
+  .spacer { flex: 1; }
 
-  .chart-card h3{margin:0 0 8px;font-size:12.5px;color:var(--tx2);font-weight:600;
-                 letter-spacing:.3px;display:flex;align-items:center;gap:8px}
-  .chart-card h3 .ic{flex:0 0 25px}
-  .chart-body{position:relative;height:190px}
-  .chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
-  .chip{font-size:11.5px;color:var(--tx2);border:1px solid var(--line);
-        background:var(--card2);border-radius:8px;padding:4px 10px}
-  footer{color:var(--tx2);font-size:11.5px;margin-top:14px}
-  #reset{cursor:pointer;color:var(--tx2);font:600 11.5px/1 system-ui,sans-serif;
-         padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:var(--card2)}
-  #reset:hover{color:var(--tx);border-color:rgba(240,246,252,.25)}
-  .reset-note{font-size:11px;color:var(--ok);opacity:0;transition:opacity .4s}
+  /* Badges & Buttons (shadcn style) */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 9px;
+    border-radius: var(--radius-sm);
+    font-size: 11px;
+    font-weight: 500;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--secondary-foreground);
+    line-height: 1.2;
+  }
+  .badge.cold {
+    color: #fdba74;
+    border-color: rgba(249, 115, 22, 0.35);
+    background: rgba(249, 115, 22, 0.08);
+  }
+  .badge.warm {
+    color: #7dd3fc;
+    border-color: rgba(56, 189, 248, 0.35);
+    background: rgba(56, 189, 248, 0.08);
+  }
+  .badge.on {
+    color: #86efac;
+    border-color: rgba(34, 197, 94, 0.35);
+    background: rgba(34, 197, 94, 0.08);
+  }
+  .badge.off {
+    color: var(--muted-foreground);
+  }
+
+  .status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--muted-foreground);
+    transition: background 0.2s ease;
+  }
+  .badge.on .status-dot {
+    background: var(--ok);
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 26px;
+    padding: 0 10px;
+    border-radius: var(--radius-sm);
+    font-size: 11.5px;
+    font-weight: 500;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--secondary-foreground);
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  }
+  .btn:hover {
+    background: var(--secondary);
+    color: var(--foreground);
+    border-color: var(--muted-foreground);
+  }
+  .reset-note {
+    font-size: 11px;
+    color: var(--ok);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    margin-left: 4px;
+  }
+
+  /* Grid Layout */
+  .grid { display: grid; gap: 10px; }
+  .cards { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+  .charts { grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); margin-top: 12px; }
+
+  /* Card Component */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    transition: border-color 0.15s ease;
+  }
+  .card:hover {
+    border-color: #3f3f46;
+  }
+
+  /* Stat Card (shadcn metric pattern) */
+  .stat {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-height: 84px;
+  }
+  .stat-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+  }
+  .stat-title {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--muted-foreground);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .stat .ic {
+    color: var(--muted-foreground);
+    display: flex;
+    align-items: center;
+  }
+  .stat-val {
+    font-size: 19px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+    color: var(--foreground);
+    line-height: 1.2;
+  }
+  .stat-val small {
+    font-size: 11.5px;
+    color: var(--muted-foreground);
+    font-weight: 400;
+    margin-left: 3px;
+  }
+  .stat-sub {
+    font-size: 11px;
+    color: var(--muted-foreground);
+    margin-top: 4px;
+  }
+  .stat.hi .stat-val {
+    color: var(--warn);
+  }
+
+  /* Chart Card */
+  .chart-card {
+    padding: 14px;
+  }
+  .chart-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .chart-header h2 {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--secondary-foreground);
+    margin: 0;
+    letter-spacing: 0.01em;
+  }
+  .chart-header .ic {
+    color: var(--muted-foreground);
+    display: flex;
+    align-items: center;
+  }
+  .chart-body {
+    position: relative;
+    height: 195px;
+  }
+
+  /* Norm Chips */
+  .chips {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border-subtle);
+  }
+  .chip {
+    font-size: 11px;
+    color: var(--muted-foreground);
+    background: var(--card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    padding: 3px 8px;
+  }
+
+  /* Footer */
+  footer {
+    color: var(--muted-foreground);
+    font-size: 11px;
+    margin-top: 12px;
+  }
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
     <h1>Toyota C-HR · NGX10 · 8NR-FTS</h1>
-    <span class="pill" id="mode">—</span>
-    <span class="pill off" id="warmed">прогрев</span>
+    <span class="badge" id="mode">—</span>
+    <span class="badge off" id="warmed">прогрев</span>
     <span class="spacer"></span>
-    <span class="pill off" id="live"><span class="live-dot" style="visibility:hidden"></span><span id="live-tx">нет связи</span></span>
-    <span class="pill" id="clock"></span>
-    <button id="reset" title="Очистить вид и начать отрисовку с нуля. Логи (CSV/БД) не удаляются — запись продолжается.">↺ сброс вида</button>
+    <span class="badge off" id="live"><span class="status-dot"></span><span id="live-tx">нет связи</span></span>
+    <span class="badge" id="clock"></span>
+    <button class="btn" id="reset" title="Очистить вид и начать отрисовку с нуля. Логи (CSV/БД) не удаляются — запись продолжается.">↺ сброс вида</button>
     <span class="reset-note" id="reset-note"></span>
   </header>
 
   <div class="grid cards" id="stats"></div>
 
-  <div class="grid charts" style="margin-top:12px">
-    <div class="card chart-card"><h3><span class="ic" data-ic="temp"></span>Температуры, °C</h3><div class="chart-body"><canvas id="chTemps"></canvas></div></div>
-    <div class="card chart-card"><h3><span class="ic" data-ic="engine"></span>Обороты, rpm</h3><div class="chart-body"><canvas id="chRpm"></canvas></div></div>
-    <div class="card chart-card"><h3><span class="ic" data-ic="air"></span>Воздух, MAF г/с</h3><div class="chart-body"><canvas id="chAir"></canvas></div></div>
-    <div class="card chart-card"><h3><span class="ic" data-ic="trim"></span>Топливные коррекции, %</h3><div class="chart-body"><canvas id="chTrims"></canvas></div></div>
-    <div class="card chart-card"><h3><span class="ic" data-ic="temp"></span>Катализатор, °C</h3><div class="chart-body"><canvas id="chCat"></canvas></div></div>
-    <div class="card chart-card"><h3><span class="ic" data-ic="batt"></span>Бортсеть, V</h3><div class="chart-body"><canvas id="chVolt"></canvas></div></div>
+  <div class="grid charts">
+    <div class="card chart-card">
+      <div class="chart-header">
+        <h2>Температуры, °C</h2>
+        <span class="ic" data-ic="temp"></span>
+      </div>
+      <div class="chart-body"><canvas id="chTemps"></canvas></div>
+    </div>
+    <div class="card chart-card">
+      <div class="chart-header">
+        <h2>Обороты, rpm</h2>
+        <span class="ic" data-ic="engine"></span>
+      </div>
+      <div class="chart-body"><canvas id="chRpm"></canvas></div>
+    </div>
+    <div class="card chart-card">
+      <div class="chart-header">
+        <h2>Воздух, MAF г/с</h2>
+        <span class="ic" data-ic="air"></span>
+      </div>
+      <div class="chart-body"><canvas id="chAir"></canvas></div>
+    </div>
+    <div class="card chart-card">
+      <div class="chart-header">
+        <h2>Топливные коррекции, %</h2>
+        <span class="ic" data-ic="trim"></span>
+      </div>
+      <div class="chart-body"><canvas id="chTrims"></canvas></div>
+    </div>
+    <div class="card chart-card">
+      <div class="chart-header">
+        <h2>Катализатор, °C</h2>
+        <span class="ic" data-ic="temp"></span>
+      </div>
+      <div class="chart-body"><canvas id="chCat"></canvas></div>
+    </div>
+    <div class="card chart-card">
+      <div class="chart-header">
+        <h2>Бортсеть, V</h2>
+        <span class="ic" data-ic="batt"></span>
+      </div>
+      <div class="chart-body"><canvas id="chVolt"></canvas></div>
+    </div>
   </div>
 
   <div class="chips">
@@ -92,7 +327,7 @@
 </div>
 
 <script>
-/* ---------- иконки 25×25, единый штриховой стиль ---------- */
+/* ---------- SVG Icons (KISS / DRY, 18×18 view) ---------- */
 const ICONS = {
   temp:   '<path d="M12.5 4v9.2a4 4 0 1 1-3 0V4a1.5 1.5 0 0 1 3 0Z"/><circle cx="11" cy="17.2" r="1.7"/>',
   engine: '<path d="M6.5 8h4V6h4v2h3.5l3 3v6.5h-4l-2.5 2.5H8L5.5 17H4v-6h2.5Z"/><path d="M10 12h5M4.5 11H2.8M20 12h2.2"/>',
@@ -102,222 +337,283 @@ const ICONS = {
   batt:   '<rect x="3" y="8" width="17" height="9.5" rx="2"/><path d="M20.5 11v3.5M7.5 11v3.5M11 11v3.5"/>',
   oil:    '<path d="M12.5 3.5S6.5 10 6.5 14.3a6 6 0 0 0 12 0C18.5 10 12.5 3.5 12.5 3.5Z"/>',
 };
-document.querySelectorAll('.ic').forEach(el=>{
-  const p = ICONS[el.dataset.ic]||'';
-  el.innerHTML = `<svg width="25" height="25" viewBox="0 0 25 25" fill="none"
-     stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
+function renderIcon(key, size = 16) {
+  const p = ICONS[key] || '';
+  return `<svg width="${size}" height="${size}" viewBox="0 0 25 25" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
+}
+document.querySelectorAll('.chart-header .ic').forEach(el => {
+  el.innerHTML = renderIcon(el.dataset.ic, 15);
 });
 
-/* ---------- хелперы (объявлены до графиков — колбэк оси их вызывает) ---------- */
-const fmt = (v,d=1)=> v==null||isNaN(v) ? '—' : (Math.round(v*10**d)/10**d).toLocaleString('ru');
-const mmss = s => { s=Math.max(0,Math.round(s)); return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`; };
+/* ---------- Formatting Helpers ---------- */
+const fmt = (v, d = 1) => v == null || isNaN(v) ? '—' : (Math.round(v * 10 ** d) / 10 ** d).toLocaleString('ru');
+const mmss = s => {
+  s = Math.max(0, Math.round(s));
+  return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+};
+const loopLabel = v => v == null ? '—' : ({
+  1: 'OPEN · прогрев', 2: 'CLOSED', 4: 'OPEN · нагрузка',
+  8: 'OPEN · сбой', 16: 'CLOSED · сбой'
+})[v] || `код ${v}`;
 
-/* ---------- статкарты ---------- */
+/* ---------- Stat Cards Config & Generation (DRY) ---------- */
 const STATS = [
-  ['engine','Двигатель','холостой ход','rpm', c=>fmt(c.rpm,0)],
-  ['temp','ОЖ','coolant','°C', c=>fmt(c.coolant), c=>c.coolant!=null&&c.coolant>=80],
-  ['temp','Прогрев','скорость ОЖ','°C/мин', c=>c._rate==null?'—':(c._rate>=0?'+':'')+fmt(c._rate)],
-  ['oil','Масло','oil_temp','°C', c=>fmt(c.oil_temp)],
-  ['temp','Катализатор','catalyst','°C', c=>fmt(c.catalyst,0)],
-  ['engine','Петля','fuel_status','', c=>loopLabel(c.fuel_status), c=>c.fuel_status===2],
-  ['clock','Время сессии','от старта','', c=>mmss(c.ts)],
-  ['air','MAF','maf','g/s', c=>fmt(c.maf)],
-  ['trim','Коррекции','STFT / LTFT','%', c=>c.stft==null?'—':`${fmt(c.stft)} / ${fmt(c.ltft)}`],
-  ['batt','Бортсеть','voltage','V', c=>fmt(c.voltage)],
+  ['engine', 'Двигатель', 'холостой ход', 'rpm', c => fmt(c.rpm, 0)],
+  ['temp', 'ОЖ', 'coolant', '°C', c => fmt(c.coolant), c => c.coolant != null && c.coolant >= 80],
+  ['temp', 'Прогрев', 'скорость ОЖ', '°C/мин', c => c._rate == null ? '—' : (c._rate >= 0 ? '+' : '') + fmt(c._rate)],
+  ['oil', 'Масло', 'oil_temp', '°C', c => fmt(c.oil_temp)],
+  ['temp', 'Катализатор', 'catalyst', '°C', c => fmt(c.catalyst, 0)],
+  ['engine', 'Петля', 'fuel_status', '', c => loopLabel(c.fuel_status), c => c.fuel_status === 2],
+  ['clock', 'Время сессии', 'от старта', '', c => mmss(c.ts)],
+  ['air', 'MAF', 'maf', 'g/s', c => fmt(c.maf)],
+  ['trim', 'Коррекции', 'STFT / LTFT', '%', c => c.stft == null ? '—' : `${fmt(c.stft)} / ${fmt(c.ltft)}`],
+  ['batt', 'Бортсеть', 'voltage', 'V', c => fmt(c.voltage)],
 ];
-const loopLabel = v => v==null?'—':({1:'OPEN · прогрев',2:'CLOSED',4:'OPEN · нагрузка',
-                                     8:'OPEN · сбой',16:'CLOSED · сбой'})[v]||`код ${v}`;
-const statsEl = document.getElementById('stats');
-statsEl.innerHTML = STATS.map((s,i)=>`
-  <div class="card stat" id="st${i}">
-    <span class="ic" data-ic="${s[0]}"></span>
-    <div><div class="k">${s[1]}</div><div class="v">—</div><div class="n">${s[2]}${s[3]?' · '+s[3]:''}</div></div>
-  </div>`).join('');
-statsEl.querySelectorAll('.ic').forEach(el=>{
-  el.innerHTML = `<svg width="25" height="25" viewBox="0 0 25 25" fill="none"
-    stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICONS[el.dataset.ic]}</svg>`;
-});
 
-/* ---------- графики (цвета в hex — canvas не понимает CSS-переменные) ---------- */
-const C = {coolant:'#58a6ff',oil:'#f0883a',iat:'#7ee787',rpm:'#ff7b72',
-           maf:'#79c0ff',cat:'#bc8cff',stft:'#ff6b6b',ltft:'#ffa94d',volt:'#63e6be'};
-const mkChart = (id, sets, y1=null)=>{
-  const ds = sets.map(s=>({label:s.l, data:[], borderColor:s.c, backgroundColor:s.c+'22',
-    borderWidth:2, pointRadius:0, tension:.3, yAxisID:s.y||'y', borderDash:s.d||[]}));
+const statsEl = document.getElementById('stats');
+statsEl.innerHTML = STATS.map((s, i) => `
+  <div class="card stat" id="st${i}">
+    <div class="stat-header">
+      <span class="stat-title">${s[1]}</span>
+      <span class="ic">${renderIcon(s[0], 14)}</span>
+    </div>
+    <div class="stat-val">—</div>
+    <div class="stat-sub">${s[2]}${s[3] ? ' · ' + s[3] : ''}</div>
+  </div>`).join('');
+
+/* ---------- Charts Config (Chart.js) ---------- */
+const C = {
+  coolant: '#38bdf8', oil: '#fb923c', iat: '#4ade80', rpm: '#f87171',
+  maf: '#60a5fa', cat: '#c084fc', stft: '#f43f5e', ltft: '#f97316', volt: '#2dd4bf'
+};
+
+const mkChart = (id, sets, y1 = null) => {
+  const ds = sets.map(s => ({
+    label: s.l, data: [], borderColor: s.c, backgroundColor: s.c + '18',
+    borderWidth: 1.75, pointRadius: 0, tension: 0.3, yAxisID: s.y || 'y', borderDash: s.d || []
+  }));
   return new Chart(document.getElementById(id), {
-    type:'line',
-    data:{datasets:ds},
-    options:{
-      animation:false, maintainAspectRatio:false, interaction:{mode:'nearest',intersect:false},
-      plugins:{legend:{labels:{color:'#8b949e',boxWidth:8,boxHeight:2,font:{size:10.5}}},
-               tooltip:{callbacks:{title:it=>mmss(it[0].parsed.x)}}},
-      scales:{
-        x:{type:'linear',ticks:{color:'#8b949e',font:{size:10},maxTicksLimit:8,callback:v=>mmss(v)},
-           grid:{color:'rgba(240,246,252,.05)'}},
-        y:{ticks:{color:'#8b949e',font:{size:10}},grid:{color:'rgba(240,246,252,.05)'}},
-        ...(y1?{y1:{position:'right',ticks:{color:'#8b949e',font:{size:10}},grid:{drawOnChartArea:false}}}:{})
+    type: 'line',
+    data: { datasets: ds },
+    options: {
+      animation: false,
+      maintainAspectRatio: false,
+      interaction: { mode: 'nearest', intersect: false },
+      plugins: {
+        legend: {
+          labels: { color: '#a1a1aa', boxWidth: 8, boxHeight: 2, font: { size: 10 } }
+        },
+        tooltip: {
+          backgroundColor: '#18181b',
+          borderColor: '#27272a',
+          borderWidth: 1,
+          titleColor: '#f4f4f5',
+          bodyColor: '#d4d4d8',
+          callbacks: { title: it => mmss(it[0].parsed.x) }
+        }
+      },
+      scales: {
+        x: {
+          type: 'linear',
+          ticks: { color: '#71717a', font: { size: 9.5 }, maxTicksLimit: 8, callback: v => mmss(v) },
+          grid: { color: 'rgba(255, 255, 255, 0.04)' }
+        },
+        y: {
+          ticks: { color: '#71717a', font: { size: 9.5 } },
+          grid: { color: 'rgba(255, 255, 255, 0.04)' }
+        },
+        ...(y1 ? { y1: { position: 'right', ticks: { color: '#71717a', font: { size: 9.5 } }, grid: { drawOnChartArea: false } } } : {})
       }
     }
   });
 };
-const chTemps = mkChart('chTemps',[
-  {l:'ОЖ',c:C.coolant},{l:'Масло',c:C.oil},{l:'IAT',c:C.iat},
-  {l:'84 термостат',c:'rgba(240,246,252,.22)',d:[4,4]},{l:'80 термостат',c:'rgba(240,246,252,.22)',d:[4,4]}]);
-const chRpm   = mkChart('chRpm',[
-  {l:'RPM',c:C.rpm},
-  {l:'780 ХХ-норма',c:'rgba(240,246,252,.22)',d:[4,4]},{l:'680 ХХ-норма',c:'rgba(240,246,252,.22)',d:[4,4]}]);
-const chAir   = mkChart('chAir',[{l:'MAF g/s',c:C.maf}]);
-const chTrims = mkChart('chTrims',[
-  {l:'STFT',c:C.stft},{l:'LTFT',c:C.ltft},
-  {l:'+10%',c:'rgba(240,246,252,.25)',d:[4,4]},{l:'-10%',c:'rgba(240,246,252,.25)',d:[4,4]}]);
-const chCat   = mkChart('chCat',[{l:'Катализатор °C',c:C.cat}]);
-const chVolt  = mkChart('chVolt',[{l:'V',c:C.volt}]);
 
-/* ---------- модель данных (единая точка записи) ----------
-   Правила:
-   - snapshot (каждое подключение WS) пересобирает вид с нуля — после F5/реконнекта
-     всегда видна вся текущая сессия, старое поверх нового не рисуется;
-   - дубли отсеиваются по seq (второй сокет / повторная доставка не страшны);
-   - кнопка «сброс» прячет ряды с seq <= resetSeq и ось начинается с нуля;
-     логи на сервере (CSV/БД/буфер) при этом НЕ трогаются — запись идёт дальше. */
-const series = {};   // key -> массивы, выровненные по индексу (ts, COLUMNS)
+const chTemps = mkChart('chTemps', [
+  { l: 'ОЖ', c: C.coolant }, { l: 'Масло', c: C.oil }, { l: 'IAT', c: C.iat },
+  { l: '84 термостат', c: 'rgba(255,255,255,0.2)', d: [4, 4] }, { l: '80 термостат', c: 'rgba(255,255,255,0.2)', d: [4, 4] }
+]);
+const chRpm   = mkChart('chRpm', [
+  { l: 'RPM', c: C.rpm },
+  { l: '780 ХХ-норма', c: 'rgba(255,255,255,0.2)', d: [4, 4] }, { l: '680 ХХ-норма', c: 'rgba(255,255,255,0.2)', d: [4, 4] }
+]);
+const chAir   = mkChart('chAir', [{ l: 'MAF g/s', c: C.maf }]);
+const chTrims = mkChart('chTrims', [
+  { l: 'STFT', c: C.stft }, { l: 'LTFT', c: C.ltft },
+  { l: '+10%', c: 'rgba(255,255,255,0.2)', d: [4, 4] }, { l: '-10%', c: 'rgba(255,255,255,0.2)', d: [4, 4] }
+]);
+const chCat   = mkChart('chCat', [{ l: 'Катализатор °C', c: C.cat }]);
+const chVolt  = mkChart('chVolt', [{ l: 'V', c: C.volt }]);
+
+/* ---------- Data Store & Ingestion Model ---------- */
+const series = {};
 let cols = [];
-let lastSeq = 0;     // максимальный увиденный seq — дедупликация
-let resetSeq = 0;    // ряды с seq <= него скрыты кнопкой Reset
-let viewT0 = null;   // начало оси x вида = ts первого видимого ряда
+let lastSeq = 0;
+let resetSeq = 0;
+let viewT0 = null;
 
-function resetView(){
+function resetView() {
   for (const k of Object.keys(series)) delete series[k];
   cols.forEach(k => { series[k] = []; });
   viewT0 = null;
 }
-function pushRow(row){
-  for (const k of cols){
+
+function pushRow(row) {
+  for (const k of cols) {
     const v = row[k];
-    const n = (v==null||v==='') ? null : +v;   // cvt_raw (hex) остаётся строкой, не NaN
-    (series[k] ||= []).push(k==='ts' ? +v : (n!=null && !isNaN(n) ? n : (v ?? null)));
+    const n = (v == null || v === '') ? null : +v;
+    (series[k] ||= []).push(k === 'ts' ? +v : (n != null && !isNaN(n) ? n : (v ?? null)));
   }
   if (viewT0 == null && series.ts?.length) viewT0 = series.ts[0];
 }
-function ingest(row){            // живые samples: дедуп + фильтр Reset; true = ряд добавлен
-  if (row.seq != null){
+
+function ingest(row) {
+  if (row.seq != null) {
     if (row.seq <= lastSeq || row.seq <= resetSeq) return false;
     lastSeq = row.seq;
   }
   pushRow(row);
   return true;
 }
-function absorbSnapshot(msg){    // авторитетная пересборка вида с нуля
+
+function absorbSnapshot(msg) {
   cols = msg.columns;
   resetView();
-  for (const row of msg.rows){
-    if (row.seq != null){
+  for (const row of msg.rows) {
+    if (row.seq != null) {
       if (row.seq <= resetSeq) continue;
       lastSeq = Math.max(lastSeq, row.seq);
     }
     pushRow(row);
   }
 }
-function viewX(){                // ось x вида: 0 = старт сессии или момент Reset
+
+function viewX() {
   const ts = series.ts || [], t0 = viewT0 ?? 0;
   return ts.map(t => t - t0);
 }
 
-/* Графики: full=true — перерисовать с нуля (snapshot / Reset); full=false —
-   дозаписать только новый хвост: 1 Hz не аллоцирует старые точки заново.
-   Линии норм — константы, рисуются 2 точками, не N. */
-const BAND_LABELS = {'+10%':10, '-10%':-10, '84 термостат':84, '80 термостат':80,
-                     '780 ХХ-норма':780, '680 ХХ-норма':680};
-function repaint(full=true){
+const BAND_LABELS = {
+  '+10%': 10, '-10%': -10, '84 термостат': 84, '80 термостат': 80,
+  '780 ХХ-норма': 780, '680 ХХ-норма': 680
+};
+
+function repaint(full = true) {
   const xv = viewX(), n = xv.length;
-  const sync=(ch, map)=>{
-    ch.data.datasets.forEach(ds=>{
+  const sync = (ch, map) => {
+    ch.data.datasets.forEach(ds => {
       const band = BAND_LABELS[ds.label];
-      if (band !== undefined){
-        ds.data = n ? [{x:xv[0], y:band}, {x:xv[n-1], y:band}] : [];
+      if (band !== undefined) {
+        ds.data = n ? [{ x: xv[0], y: band }, { x: xv[n - 1], y: band }] : [];
         return;
       }
       const src = map[ds.label] || [];
       if (full || ds.data.length > n) ds.data = [];
-      for (let i = ds.data.length; i < n; i++) ds.data.push({x:xv[i], y:src[i]});
+      for (let i = ds.data.length; i < n; i++) ds.data.push({ x: xv[i], y: src[i] });
     });
     ch.update('none');
   };
-  sync(chTemps,{ОЖ:series.coolant,'Масло':series.oil_temp,IAT:series.iat});
-  sync(chRpm,{RPM:series.rpm});
-  sync(chAir,{'MAF g/s':series.maf});
-  sync(chTrims,{STFT:series.stft,LTFT:series.ltft});
-  sync(chCat,{'Катализатор °C':series.catalyst});
-  sync(chVolt,{V:series.voltage});
-  // статкарты
-  const last = {}; for (const k of cols) last[k]=series[k]?.at(-1);
-  last.ts = xv.at(-1) ?? 0;   // «Время сессии» = время видимого окна
-  last.trim = (last.stft!=null)? last.stft : null;
-  // скорость прогрева: °C/мин за последние 60 с (разности ts от сдвига вида не зависят)
+
+  sync(chTemps, { ОЖ: series.coolant, 'Масло': series.oil_temp, IAT: series.iat });
+  sync(chRpm, { RPM: series.rpm });
+  sync(chAir, { 'MAF g/s': series.maf });
+  sync(chTrims, { STFT: series.stft, LTFT: series.ltft });
+  sync(chCat, { 'Катализатор °C': series.catalyst });
+  sync(chVolt, { V: series.voltage });
+
+  // Update Stat Cards
+  const last = {};
+  for (const k of cols) last[k] = series[k]?.at(-1);
+  last.ts = xv.at(-1) ?? 0;
+  last.trim = (last.stft != null) ? last.stft : null;
+
   const t60 = (series.ts?.at(-1) ?? 0) - 60;
   let ref = null;
-  for (let i = (series.ts?.length ?? 0) - 1; i >= 0; i--) { if (series.ts[i] <= t60) { ref = series.coolant[i]; break; } }
+  for (let i = (series.ts?.length ?? 0) - 1; i >= 0; i--) {
+    if (series.ts[i] <= t60) { ref = series.coolant[i]; break; }
+  }
   const nowC = series.coolant?.at(-1);
-  last._rate = (ref!=null && nowC!=null) ? nowC - ref : null;
-  STATS.forEach((s,i)=>{
-    const el=document.getElementById('st'+i);
-    const v=el.querySelector('.v'); const val=s[4](last);
-    v.innerHTML = val==='—'?'—':val+(s[3]?`<small>${s[3]}</small>`:'');
-    el.classList.toggle('hi', !!(s[5]&&s[5](last)));
+  last._rate = (ref != null && nowC != null) ? nowC - ref : null;
+
+  STATS.forEach((s, i) => {
+    const el = document.getElementById('st' + i);
+    const v = el.querySelector('.stat-val');
+    const val = s[4](last);
+    v.innerHTML = val === '—' ? '—' : val + (s[3] ? `<small>${s[3]}</small>` : '');
+    el.classList.toggle('hi', !!(s[5] && s[5](last)));
   });
 }
 
-function metaUpd(m){
+function metaUpd(m) {
   if (!m) return;
-  // часы ставим всегда — иначе на завершённой сессии (return ниже) виджет пустой
-  const c=document.getElementById('clock');
-  c.innerHTML=`<span class="ic" style="width:25px;height:25px"><svg width="25" height="25" viewBox="0 0 25 25" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12.5" cy="12.5" r="8.5"/><path d="M12.5 7.5v5l3.4 2"/></svg></span> ${mmss(viewX().at(-1) ?? 0)}`;
-  const mode=document.getElementById('mode');
-  if (m.finished){
-    mode.textContent = '✓ СЕССИЯ ЗАВЕРШЕНА — данные зафиксированы';
-    mode.className = 'pill on';
-    const w=document.getElementById('warmed');
-    if (m.warm_at_s!=null){ w.textContent=`✔ прогрев ${mmss(m.warm_at_s)}`; w.className='pill on'; }
-    return;  // данные больше не обновляются
+  const c = document.getElementById('clock');
+  c.innerHTML = `${renderIcon('clock', 12)} <span>${mmss(viewX().at(-1) ?? 0)}</span>`;
+
+  const mode = document.getElementById('mode');
+  if (m.finished) {
+    mode.textContent = '✓ Завершено';
+    mode.className = 'badge on';
+    const w = document.getElementById('warmed');
+    if (m.warm_at_s != null) { w.textContent = `✔ прогрет ${mmss(m.warm_at_s)}`; w.className = 'badge on'; }
+    return;
   }
-  mode.textContent = m.mode==='cold' ? '❄ ХОЛОДНЫЙ ПУСК' : 'ПРОГРЕТЫЙ';
-  mode.className = 'pill '+(m.mode==='cold'?'cold':'warm');
-  const w=document.getElementById('warmed');
-  if (m.warm_at_s!=null){ w.textContent=`✔ прогрев ${mmss(m.warm_at_s)}`; w.className='pill on'; }
+  mode.textContent = m.mode === 'cold' ? '❄ Холодный пуск' : 'Прогретый';
+  mode.className = 'badge ' + (m.mode === 'cold' ? 'cold' : 'warm');
+
+  const w = document.getElementById('warmed');
+  if (m.warm_at_s != null) { w.textContent = `✔ прогрет ${mmss(m.warm_at_s)}`; w.className = 'badge on'; }
 }
 
-/* ---------- кнопка Reset: только вид, логи не трогаются ---------- */
-document.getElementById('reset').addEventListener('click', ()=>{
+/* ---------- Reset View Handler ---------- */
+document.getElementById('reset').addEventListener('click', () => {
   resetSeq = lastSeq;
   resetView();
   repaint();
-  const n=document.getElementById('reset-note');
-  n.textContent='вид очищен · логи пишутся дальше';
-  n.style.opacity=1;
-  setTimeout(()=>{ n.style.opacity=0; }, 4000);
+  const n = document.getElementById('reset-note');
+  n.textContent = 'вид очищен · запись продолжается';
+  n.style.opacity = '1';
+  setTimeout(() => { n.style.opacity = '0'; }, 3500);
 });
 
-/* ---------- WS: один живой сокет, колбэки мёртвых поколений игнорируются ---------- */
-let ws=null, wsGen=0, runId=null;
-function connect(){
+/* ---------- WebSocket Connection ---------- */
+let ws = null, wsGen = 0, runId = null;
+function connect() {
   const gen = ++wsGen;
-  if (ws){ ws.onclose = null; try{ ws.close(); }catch(e){} }
+  if (ws) { ws.onclose = null; try { ws.close(); } catch (e) {} }
   const sock = new WebSocket(`ws://${location.host}/ws`);
   ws = sock;
-  const live=document.getElementById('live'), tx=document.getElementById('live-tx'), dot=live.querySelector('.live-dot');
-  sock.onopen = ()=>{ if (gen!==wsGen) return; tx.textContent='онлайн'; dot.style.visibility='visible'; live.className='pill on'; };
-  sock.onclose = ()=>{ if (gen!==wsGen) return; tx.textContent='нет связи'; dot.style.visibility='hidden'; live.className='pill off'; setTimeout(connect,2000); };
-  sock.onmessage = ev=>{
-    if (gen!==wsGen) return;
+  const live = document.getElementById('live');
+  const tx = document.getElementById('live-tx');
+
+  sock.onopen = () => {
+    if (gen !== wsGen) return;
+    tx.textContent = 'онлайн';
+    live.className = 'badge on';
+  };
+  sock.onclose = () => {
+    if (gen !== wsGen) return;
+    tx.textContent = 'нет связи';
+    live.className = 'badge off';
+    setTimeout(connect, 2000);
+  };
+  sock.onmessage = ev => {
+    if (gen !== wsGen) return;
     const msg = JSON.parse(ev.data);
-    // новый запуск capture на этом порту: нумерация seq начинается с 1,
-    // старые lastSeq/resetSeq не должны гасить и прятать новую сессию
-    if (msg.run && msg.run !== runId){ runId = msg.run; lastSeq = 0; resetSeq = 0; }
+    if (msg.run && msg.run !== runId) {
+      runId = msg.run;
+      lastSeq = 0;
+      resetSeq = 0;
+    }
     let added = false;
-    if (msg.type==='snapshot'){ absorbSnapshot(msg); added = true; }
-    else if (msg.type==='samples'){ for (const row of msg.rows) if (ingest(row)) added = true; }
+    if (msg.type === 'snapshot') {
+      absorbSnapshot(msg);
+      added = true;
+    } else if (msg.type === 'samples') {
+      for (const row of msg.rows) {
+        if (ingest(row)) added = true;
+      }
+    }
     metaUpd(msg.meta);
-    if (added) repaint(msg.type==='snapshot');  // snapshot -> с нуля; samples -> только хвост
+    if (added) repaint(msg.type === 'snapshot');
   };
 }
 connect();
