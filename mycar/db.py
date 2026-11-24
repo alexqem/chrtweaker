@@ -131,35 +131,43 @@ def trend() -> str:
 
     LTFT is a learned value, so per-session mean/min/max show the adaptation
     drift; compare before/after an adaptation reset (battery off 30+ min).
+    Sim and aborted sessions are excluded — test runs would skew the drift.
     """
     with _connect() as conn:
         sessions = conn.execute(
-            "SELECT id, started_at, mode, start_coolant_c, warm_at_s FROM sessions ORDER BY started_at"
+            "SELECT s.id, s.started_at, s.mode, s.start_coolant_c, s.warm_at_s, "
+            "       AVG(f.ltft), MIN(f.ltft), MAX(f.ltft), COUNT(f.ltft) "
+            "FROM sessions s "
+            "LEFT JOIN samples f ON f.session_id = s.id AND f.ltft IS NOT NULL "
+            "WHERE s.aborted IS NOT 1 "
+            "  AND COALESCE(json_extract(s.meta_json, '$.sim'), 0) != 1 "
+            "GROUP BY s.id ORDER BY s.started_at"
         ).fetchall()
+        skipped = conn.execute(
+            "SELECT COUNT(*) FROM sessions WHERE aborted = 1 "
+            "OR COALESCE(json_extract(meta_json, '$.sim'), 0) = 1"
+        ).fetchone()[0]
         if not sessions:
             return "DB is empty — run capture or `python -m mycar db` to import logs/."
         out = ["# LTFT trend (logs/chr.db)", "",
                "| date | mode | start ECT | warm-up | LTFT mean | LTFT min..max | rows |",
                "|---|---|---|---|---|---|---|"]
         means = []
-        for sid, started_at, mode, start_c, warm_s in sessions:
-            row = conn.execute(
-                "SELECT AVG(ltft), MIN(ltft), MAX(ltft), COUNT(ltft) FROM samples "
-                "WHERE session_id=? AND ltft IS NOT NULL", (sid,),
-            ).fetchone()
-            avg, lo, hi, n = row
+        for sid, started_at, mode, start_c, warm_s, avg, lo, hi, n in sessions:
+            date = (started_at or "")[:16].replace("T", " ")
+            start_s = "—" if start_c is None else f"{start_c:g}"
+            warm = f"{warm_s/60:.1f} min" if warm_s is not None else "—"
             if not n:
-                out.append(f"| {(started_at or '')[:16].replace('T', ' ')} | {mode} | "
-                           f"{start_c or '—'} | {f'{warm_s/60:.1f} min' if warm_s is not None else '—'} | "
-                           f"— | — | 0 |")
+                out.append(f"| {date} | {mode} | {start_s} | {warm} | — | — | 0 |")
                 continue
             means.append(avg)
-            out.append(f"| {(started_at or '')[:16].replace('T', ' ')} | {mode} | "
-                       f"{start_c or '—'} | {f'{warm_s/60:.1f} min' if warm_s is not None else '—'} | "
+            out.append(f"| {date} | {mode} | {start_s} | {warm} | "
                        f"{avg:+.1f}% | {lo:+.1f}…{hi:+.1f}% | {n} |")
         if len(means) >= 2:
             out += ["", f"LTFT drift: {means[0]:+.1f}% → {means[-1]:+.1f}% "
                     f"({means[-1] - means[0]:+.1f} pp over {len(means)} sessions)"]
+        if skipped:
+            out += ["", f"({skipped} sim/aborted session(s) excluded)"]
         return "\n".join(out)
 
 
@@ -191,7 +199,8 @@ def summary() -> str:
             rpm_s = f"{idle[0]:.0f}" if idle and idle[0] else "—"
             ltft_s = f"{idle[1]:+.1f}%" if idle and idle[1] is not None else "—"
             flag = " ⚠aborted" if aborted else ""
-            out.append(f"| {date} | {mode or '—'}{flag} | {start_c or '—'} °C | {warm} | {rows or '—'} | {rpm_s} | {ltft_s} |")
+            start_s = "—" if start_c is None else f"{start_c:g}"   # 0.0 °C — валидное значение
+            out.append(f"| {date} | {mode or '—'}{flag} | {start_s} °C | {warm} | {rows or '—'} | {rpm_s} | {ltft_s} |")
 
         # simple trends over all sessions
         trend = conn.execute(

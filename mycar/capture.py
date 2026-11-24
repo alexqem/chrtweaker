@@ -66,7 +66,8 @@ def auto_analyze(csv_path, log):
     try:
         from mycar import analyze
         out = analyze.analyze_session(csv_path)
-        log(f"Auto-analysis: {out}")
+        log(f"Auto-analysis ({out.name}):")
+        log(out.read_text(encoding="utf-8"))
     except Exception as e:  # analysis must never break the session
         log(f"auto-analysis skipped: {e}")
 
@@ -162,6 +163,7 @@ def capture(port: str | None, simulate: bool, max_minutes: float, sim_time_scale
             "car": config.CAR,
             "car_id": car_id,
             "mode": mode,
+            "sim": bool(simulate),  # trend must not mix sim runs into LTFT drift
             "started_at": datetime.now(timezone.utc).isoformat(),
             "start_coolant_c": first_coolant,
             "thresholds": {
@@ -286,7 +288,7 @@ def capture(port: str | None, simulate: bool, max_minutes: float, sim_time_scale
         try:  # health snapshot at session end while the link is still up
             meta["dtc"] = toyota.read_dtc(conn)
             found = [f"{m}: {', '.join(c)}" for m, c in meta["dtc"].items() if c]
-            log("DTC after session: " + ("; ".join(found) if found else "no codes (03/07 clean)"))
+            log("DTC after session: " + ("; ".join(found) if found else "no codes (03/07/0A clean)"))
         except Exception as e:
             log(f"DTC read skipped: {e}")
         return str(csv_path)

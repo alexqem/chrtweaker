@@ -180,20 +180,12 @@ const chVolt  = mkChart('chVolt',[{l:'V',c:C.volt}]);
    - дубли отсеиваются по seq (второй сокет / повторная доставка не страшны);
    - кнопка «сброс» прячет ряды с seq <= resetSeq и ось начинается с нуля;
      логи на сервере (CSV/БД/буфер) при этом НЕ трогаются — запись идёт дальше. */
-const series = {};   // key -> массивы, выровненные по индексу (ts, COLUMNS, bands)
+const series = {};   // key -> массивы, выровненные по индексу (ts, COLUMNS)
 let cols = [];
 let lastSeq = 0;     // максимальный увиденный seq — дедупликация
 let resetSeq = 0;    // ряды с seq <= него скрыты кнопкой Reset
 let viewT0 = null;   // начало оси x вида = ts первого видимого ряда
 
-const BANDS = {_hi:10, _lo:-10, _th84:84, _th80:80, _idleHi:780, _idleLo:680};
-function ensureBands(){
-  const n = (series.ts || []).length;
-  for (const [k,v] of Object.entries(BANDS)){
-    const a = series[k] ||= [];
-    while (a.length < n) a.push(v);
-  }
-}
 function resetView(){
   for (const k of Object.keys(series)) delete series[k];
   cols.forEach(k => { series[k] = []; });
@@ -201,17 +193,19 @@ function resetView(){
 }
 function pushRow(row){
   for (const k of cols){
-    (series[k] ||= []).push(k==='ts' ? +row[k] : (row[k]==null||row[k]==='' ? null : +row[k]));
+    const v = row[k];
+    const n = (v==null||v==='') ? null : +v;   // cvt_raw (hex) остаётся строкой, не NaN
+    (series[k] ||= []).push(k==='ts' ? +v : (n!=null && !isNaN(n) ? n : (v ?? null)));
   }
   if (viewT0 == null && series.ts?.length) viewT0 = series.ts[0];
-  ensureBands();
 }
-function ingest(row){            // живые samples: дедуп + фильтр Reset
+function ingest(row){            // живые samples: дедуп + фильтр Reset; true = ряд добавлен
   if (row.seq != null){
-    if (row.seq <= lastSeq || row.seq <= resetSeq) return;
+    if (row.seq <= lastSeq || row.seq <= resetSeq) return false;
     lastSeq = row.seq;
   }
   pushRow(row);
+  return true;
 }
 function absorbSnapshot(msg){    // авторитетная пересборка вида с нуля
   cols = msg.columns;
@@ -229,22 +223,32 @@ function viewX(){                // ось x вида: 0 = старт сесси
   return ts.map(t => t - t0);
 }
 
-function repaint(){
-  const xv = viewX();
-  const fill=(ch, map)=>{
+/* Графики: full=true — перерисовать с нуля (snapshot / Reset); full=false —
+   дозаписать только новый хвост: 1 Hz не аллоцирует старые точки заново.
+   Линии норм — константы, рисуются 2 точками, не N. */
+const BAND_LABELS = {'+10%':10, '-10%':-10, '84 термостат':84, '80 термостат':80,
+                     '780 ХХ-норма':780, '680 ХХ-норма':680};
+function repaint(full=true){
+  const xv = viewX(), n = xv.length;
+  const sync=(ch, map)=>{
     ch.data.datasets.forEach(ds=>{
+      const band = BAND_LABELS[ds.label];
+      if (band !== undefined){
+        ds.data = n ? [{x:xv[0], y:band}, {x:xv[n-1], y:band}] : [];
+        return;
+      }
       const src = map[ds.label] || [];
-      ds.data = src.map((y,i)=>({x:xv[i], y}));
+      if (full || ds.data.length > n) ds.data = [];
+      for (let i = ds.data.length; i < n; i++) ds.data.push({x:xv[i], y:src[i]});
     });
     ch.update('none');
   };
-  fill(chTemps,{ОЖ:series.coolant,'Масло':series.oil_temp,IAT:series.iat,
-    '84 термостат':series._th84,'80 термостат':series._th80});
-  fill(chRpm,{RPM:series.rpm,'780 ХХ-норма':series._idleHi,'680 ХХ-норма':series._idleLo});
-  fill(chAir,{'MAF g/s':series.maf});
-  fill(chTrims,{STFT:series.stft,LTFT:series.ltft,'+10%':series._hi,'-10%':series._lo});
-  fill(chCat,{'Катализатор °C':series.catalyst});
-  fill(chVolt,{V:series.voltage});
+  sync(chTemps,{ОЖ:series.coolant,'Масло':series.oil_temp,IAT:series.iat});
+  sync(chRpm,{RPM:series.rpm});
+  sync(chAir,{'MAF g/s':series.maf});
+  sync(chTrims,{STFT:series.stft,LTFT:series.ltft});
+  sync(chCat,{'Катализатор °C':series.catalyst});
+  sync(chVolt,{V:series.voltage});
   // статкарты
   const last = {}; for (const k of cols) last[k]=series[k]?.at(-1);
   last.ts = xv.at(-1) ?? 0;   // «Время сессии» = время видимого окна
@@ -265,6 +269,9 @@ function repaint(){
 
 function metaUpd(m){
   if (!m) return;
+  // часы ставим всегда — иначе на завершённой сессии (return ниже) виджет пустой
+  const c=document.getElementById('clock');
+  c.innerHTML=`<span class="ic" style="width:25px;height:25px"><svg width="25" height="25" viewBox="0 0 25 25" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12.5" cy="12.5" r="8.5"/><path d="M12.5 7.5v5l3.4 2"/></svg></span> ${mmss(viewX().at(-1) ?? 0)}`;
   const mode=document.getElementById('mode');
   if (m.finished){
     mode.textContent = '✓ СЕССИЯ ЗАВЕРШЕНА — данные зафиксированы';
@@ -277,8 +284,6 @@ function metaUpd(m){
   mode.className = 'pill '+(m.mode==='cold'?'cold':'warm');
   const w=document.getElementById('warmed');
   if (m.warm_at_s!=null){ w.textContent=`✔ прогрев ${mmss(m.warm_at_s)}`; w.className='pill on'; }
-  const c=document.getElementById('clock');
-  c.innerHTML=`<span class="ic" style="width:25px;height:25px"><svg width="25" height="25" viewBox="0 0 25 25" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12.5" cy="12.5" r="8.5"/><path d="M12.5 7.5v5l3.4 2"/></svg></span> ${mmss(viewX().at(-1) ?? 0)}`;
 }
 
 /* ---------- кнопка Reset: только вид, логи не трогаются ---------- */
@@ -293,7 +298,7 @@ document.getElementById('reset').addEventListener('click', ()=>{
 });
 
 /* ---------- WS: один живой сокет, колбэки мёртвых поколений игнорируются ---------- */
-let ws=null, wsGen=0;
+let ws=null, wsGen=0, runId=null;
 function connect(){
   const gen = ++wsGen;
   if (ws){ ws.onclose = null; try{ ws.close(); }catch(e){} }
@@ -305,10 +310,14 @@ function connect(){
   sock.onmessage = ev=>{
     if (gen!==wsGen) return;
     const msg = JSON.parse(ev.data);
-    if (msg.type==='snapshot') absorbSnapshot(msg);
-    else if (msg.type==='samples') msg.rows.forEach(ingest);
+    // новый запуск capture на этом порту: нумерация seq начинается с 1,
+    // старые lastSeq/resetSeq не должны гасить и прятать новую сессию
+    if (msg.run && msg.run !== runId){ runId = msg.run; lastSeq = 0; resetSeq = 0; }
+    let added = false;
+    if (msg.type==='snapshot'){ absorbSnapshot(msg); added = true; }
+    else if (msg.type==='samples'){ for (const row of msg.rows) if (ingest(row)) added = true; }
     metaUpd(msg.meta);
-    repaint();
+    if (added) repaint(msg.type==='snapshot');  // snapshot -> с нуля; samples -> только хвост
   };
 }
 connect();

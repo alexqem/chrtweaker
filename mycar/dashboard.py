@@ -8,6 +8,7 @@ thread and shuts itself down after DASHBOARD_TTL_S so it never leaks a port.
 import asyncio
 import threading
 import time
+import uuid
 from collections import deque
 from pathlib import Path
 
@@ -37,6 +38,9 @@ class State:
         self._rows: deque = deque(maxlen=maxlen)
         self._meta: dict = {}
         self._seq = 0
+        self.run_id = uuid.uuid4().hex[:8]  # identifies THIS capture run; the
+        # client resets its seq bookkeeping when it changes (new session on the
+        # same port restarts seq at 1 and must not be deduped against the old)
 
     def push(self, row: dict):
         with self._lock:
@@ -65,6 +69,7 @@ def make_app(state: State) -> FastAPI:
         rows, meta = state.snapshot()
         await sock.send_json({
             "type": "snapshot",
+            "run": state.run_id,
             "meta": meta,
             "columns": sensors.COLUMNS,
             "rows": rows,
@@ -77,9 +82,9 @@ def make_app(state: State) -> FastAPI:
                 new = [r for r in rows if r["seq"] > last_seq]
                 if new:
                     last_seq = new[-1]["seq"]
-                    await sock.send_json({"type": "samples", "rows": new, "meta": meta})
+                    await sock.send_json({"type": "samples", "run": state.run_id, "rows": new, "meta": meta})
                 else:
-                    await sock.send_json({"type": "samples", "rows": [], "meta": meta})
+                    await sock.send_json({"type": "samples", "run": state.run_id, "rows": [], "meta": meta})
         except (WebSocketDisconnect, RuntimeError):
             pass
 
