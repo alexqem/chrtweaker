@@ -40,7 +40,7 @@ class EcuTweaksTest {
         val spec = EcuTweaks.ALL.first { it.id == "auto_fold_mirrors" }
         val res = EcuTweaks.execute(spec, enabled = true, isVLinker = false, isSim = false)
         assertFalse(res.ok)
-        assertTrue(res.message.contains("vLinker"))
+        assertEquals(TweakError.GATING_VLINKER_REQUIRED, res.error)
     }
 
     @Test
@@ -65,7 +65,7 @@ class EcuTweaksTest {
         assertTrue(res.ok)
         assertEquals("00", res.beforeValue)
         assertEquals("01", res.afterValue)
-        assertTrue(res.message.contains("было 00 → стало 01"))
+        assertTrue(res.logLine.contains("00 -> 01"))
         assertEquals(listOf("ATSH 750", "21A7", "3BA701", "21A7"), sent)
     }
 
@@ -82,7 +82,9 @@ class EcuTweaksTest {
         }
 
         assertFalse(res.ok)
-        assertTrue(res.message.contains("не применилось"))
+        assertEquals(TweakError.VERIFY_FAILED, res.error)
+        assertEquals("00", res.afterValue)
+        assertEquals("01", res.expectedValue)
     }
 
     @Test
@@ -102,6 +104,7 @@ class EcuTweaksTest {
         assertFalse(res.ok)
         assertEquals(2, writeAttempts)
         assertTrue(sent.contains("1003"))
-        assertTrue(res.message.contains("STOPPED"))
+        assertEquals(TweakError.WRITE_FAILED, res.error)
+        assertEquals("STOPPED", res.rawDetail)
     }
 }

@@ -24,12 +24,22 @@ data class TweakSpec(
     val sessionCmd: String? = null
 )
 
+enum class TweakError {
+    GATING_VLINKER_REQUIRED,
+    NO_ECU_RESPONSE,
+    WRITE_FAILED,
+    VERIFY_FAILED,
+    EXCEPTION
+}
+
 data class TweakResult(
     val ok: Boolean,
-    val message: String,
     val logLine: String,
+    val error: TweakError? = null,
+    val rawDetail: String? = null,
     val beforeValue: String? = null,
-    val afterValue: String? = null
+    val afterValue: String? = null,
+    val expectedValue: String? = null
 )
 
 object EcuTweaks {
@@ -136,8 +146,11 @@ object EcuTweaks {
         val targetByte = cmd.takeLast(2).uppercase(Locale.US)
 
         if (!isSim && spec.requiresVLinker && !isVLinker) {
-            val msg = "Недоступно: требуется Vgate vLinker FD+ BT4.0"
-            return TweakResult(false, msg, "[$ts] BLOCKED | ${spec.ecu} | $header | TX: $cmd | $msg")
+            return TweakResult(
+                ok = false,
+                logLine = "[$ts] BLOCKED | ${spec.ecu} | $header | TX: $cmd | GATING_VLINKER_REQUIRED",
+                error = TweakError.GATING_VLINKER_REQUIRED
+            )
         }
 
         if (isSim || sendFn == null) {
@@ -145,9 +158,9 @@ object EcuTweaks {
             val modeTag = if (isSim) "SIM" else "OFFLINE"
             val beforeSim = if (spec.readCmd != null) (if (enabled) "00" else "01") else null
             val afterSim = if (spec.readCmd != null) targetByte else null
-            val diff = if (beforeSim != null && afterSim != null) " (было $beforeSim → стало $afterSim)" else ""
+            val diff = if (beforeSim != null && afterSim != null) " ($beforeSim -> $afterSim)" else ""
             val logLine = "[$ts] $modeTag | ${spec.protocol} | $header | TX: $cmd | RX: $posResp$diff"
-            return TweakResult(true, "${spec.title}: выполнено$diff", logLine, beforeSim, afterSim)
+            return TweakResult(ok = true, logLine = logLine, beforeValue = beforeSim, afterValue = afterSim)
         }
 
         var lastErr: Exception? = null
@@ -166,7 +179,13 @@ object EcuTweaks {
                 if (!writeOk) {
                     if (attempt == 1) {
                         val logLine = "[$ts] FAIL | ${spec.protocol} | $header | TX: $cmd | RX: $raw"
-                        return TweakResult(false, "${spec.title}: ошибка ($raw)", logLine, beforeVal, null)
+                        return TweakResult(
+                            ok = false,
+                            logLine = logLine,
+                            error = TweakError.WRITE_FAILED,
+                            rawDetail = raw,
+                            beforeValue = beforeVal
+                        )
                     }
                     kotlinx.coroutines.delay(250)
                     return@repeat
@@ -176,25 +195,37 @@ object EcuTweaks {
                     parseReadByte(rCmd, sendFn(rCmd).trim())
                 }
                 val verified = spec.readCmd == null || afterVal == null || afterVal == targetByte
-                val diff = if (afterVal != null) " (было ${beforeVal ?: "?"} → стало $afterVal)" else ""
+                val diff = if (afterVal != null) " (${beforeVal ?: "?"} -> $afterVal)" else ""
 
                 if (verified) {
                     val logLine = "[$ts] OK | ${spec.protocol} | $header | TX: $cmd | RX: $raw$diff"
-                    return TweakResult(true, "${spec.title}: выполнено$diff", logLine, beforeVal, afterVal)
+                    return TweakResult(ok = true, logLine = logLine, beforeValue = beforeVal, afterValue = afterVal)
                 }
 
                 if (attempt == 1) {
-                    val failDiff = " (было ${beforeVal ?: "?"} → осталось $afterVal, ожидалось $targetByte)"
+                    val failDiff = " (${beforeVal ?: "?"} -> $afterVal, expected $targetByte)"
                     val logLine = "[$ts] VERIFY_FAIL | ${spec.protocol} | $header | TX: $cmd | RX: $raw$failDiff"
-                    return TweakResult(false, "${spec.title}: не применилось$failDiff", logLine, beforeVal, afterVal)
+                    return TweakResult(
+                        ok = false,
+                        logLine = logLine,
+                        error = TweakError.VERIFY_FAILED,
+                        beforeValue = beforeVal,
+                        afterValue = afterVal,
+                        expectedValue = targetByte
+                    )
                 }
             } catch (e: Exception) {
                 lastErr = e
             }
             kotlinx.coroutines.delay(250)
         }
-        val msg = lastErr?.message ?: "Нет ответа от ECU"
-        val logLine = "[$ts] EXC | ${spec.protocol} | $header | TX: $cmd | ERR: $msg"
-        return TweakResult(false, "${spec.title}: ошибка ($msg)", logLine)
+        val errDetail = lastErr?.message
+        val logLine = "[$ts] EXC | ${spec.protocol} | $header | TX: $cmd | ERR: ${errDetail ?: "NO_ECU_RESPONSE"}"
+        return TweakResult(
+            ok = false,
+            logLine = logLine,
+            error = if (errDetail == null) TweakError.NO_ECU_RESPONSE else TweakError.EXCEPTION,
+            rawDetail = errDetail
+        )
     }
 }

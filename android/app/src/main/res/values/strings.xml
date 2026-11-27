@@ -58,4 +58,10 @@
     <string name="history_row_sub_fmt">%1$s · старт %2$s · строк: %3$d%4$s</string>
     <string name="tweak_applying">Применение: %1$s…</string>
     <string name="tweak_service_not_bound">Сервис логирования не подключён</string>
+    <string name="tweak_done">%1$s: выполнено%2$s</string>
+    <string name="tweak_diff_fmt"> (было %1$s → стало %2$s)</string>
+    <string name="tweak_err_vlinker_required">Недоступно: требуется Vgate vLinker FD+ BT4.0</string>
+    <string name="tweak_err_no_ecu">Нет ответа от ECU</string>
+    <string name="tweak_err_failed_fmt">%1$s: ошибка (%2$s)</string>
+    <string name="tweak_err_verify_fmt">%1$s: не применилось (было %2$s → осталось %3$s, ожидалось %4$s)</string>
 </resources>

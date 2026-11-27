@@ -109,8 +109,10 @@ class ObdLoggingService : Service() {
         manager.createNotificationChannel(channel)
     }
 
+    class ObdNotConnectedException : IllegalStateException("OBD connection not active")
+
     suspend fun sendRawCommand(cmd: String): String {
-        val c = activeConnection ?: throw IllegalStateException("Нет активного OBD-подключения (запустите сессию)")
+        val c = activeConnection ?: throw ObdNotConnectedException()
         return c.send(cmd)
     }
 

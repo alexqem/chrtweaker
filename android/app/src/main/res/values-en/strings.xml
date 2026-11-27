@@ -58,4 +58,10 @@
     <string name="history_row_sub_fmt">%1$s · start %2$s · rows: %3$d%4$s</string>
     <string name="tweak_applying">Applying: %1$s…</string>
     <string name="tweak_service_not_bound">Logging service is not connected</string>
+    <string name="tweak_done">%1$s: applied%2$s</string>
+    <string name="tweak_diff_fmt"> (was %1$s → now %2$s)</string>
+    <string name="tweak_err_vlinker_required">Unavailable: requires Vgate vLinker FD+ BT4.0</string>
+    <string name="tweak_err_no_ecu">No response from ECU</string>
+    <string name="tweak_err_failed_fmt">%1$s: error (%2$s)</string>
+    <string name="tweak_err_verify_fmt">%1$s: not applied (was %2$s → still %3$s, expected %4$s)</string>
 </resources>

@@ -19,6 +19,9 @@ import com.alexqem.chr.core.model.SensorSample
 import com.alexqem.chr.core.model.VehicleProfile
 import com.alexqem.chr.core.model.VehicleProfileRegistry
 import com.alexqem.chr.core.storage.SessionFileManager
+import com.alexqem.chr.core.tweaks.TweakError
+import com.alexqem.chr.core.tweaks.TweakResult
+import com.alexqem.chr.core.tweaks.TweakSpec
 import com.alexqem.chr.service.LiveSessionState
 import com.alexqem.chr.service.ObdLoggingService
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -272,7 +275,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         _sessionState.value.isVLinkerCapable ||
             com.alexqem.chr.core.tweaks.EcuTweaks.isVLinkerAdapter(_selectedDevice.value?.name)
 
-    fun runTweak(spec: com.alexqem.chr.core.tweaks.TweakSpec, enabled: Boolean) {
+    fun runTweak(spec: TweakSpec, enabled: Boolean) {
         if (_tweakStatus.value is TweakUiState.Pending) return
         val app = getApplication<Application>()
         _tweakStatus.value = TweakUiState.Pending(app.getString(R.string.tweak_applying, spec.title))
@@ -281,26 +284,58 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             _tweakStates.value = _tweakStates.value + (spec.id to enabled)
         }
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            val result = com.alexqem.chr.core.tweaks.EcuTweaks.execute(
-                spec = spec,
-                enabled = enabled,
-                isVLinker = isVLinkerConnected(),
-                isSim = _useSimulator.value,
-                sendFn = { cmd ->
-                    val svc = loggingServiceRef?.get()
-                        ?: throw IllegalStateException(app.getString(R.string.tweak_service_not_bound))
-                    svc.sendRawCommand(cmd)
+            try {
+                val result = com.alexqem.chr.core.tweaks.EcuTweaks.execute(
+                    spec = spec,
+                    enabled = enabled,
+                    isVLinker = isVLinkerConnected(),
+                    isSim = _useSimulator.value,
+                    sendFn = { cmd ->
+                        val svc = loggingServiceRef?.get()
+                            ?: throw ObdLoggingService.ObdNotConnectedException()
+                        svc.sendRawCommand(cmd)
+                    }
+                )
+                if (result.ok) {
+                    _tweakStatus.value = TweakUiState.Success(formatTweakSuccess(app, spec, result))
+                } else {
+                    if (spec.isSwitch) {
+                        _tweakStates.value = _tweakStates.value + (spec.id to prev)
+                    }
+                    _tweakStatus.value = TweakUiState.Error(formatTweakError(app, spec, result))
                 }
-            )
-            if (result.ok) {
-                _tweakStatus.value = TweakUiState.Success(result.message)
-            } else {
+                _tweakLogs.value = (_tweakLogs.value + result.logLine).takeLast(100)
+            } catch (e: ObdLoggingService.ObdNotConnectedException) {
                 if (spec.isSwitch) {
                     _tweakStates.value = _tweakStates.value + (spec.id to prev)
                 }
-                _tweakStatus.value = TweakUiState.Error(result.message)
+                _tweakStatus.value = TweakUiState.Error(app.getString(R.string.tweak_service_not_bound))
             }
-            _tweakLogs.value = (_tweakLogs.value + result.logLine).takeLast(100)
+        }
+    }
+
+    private fun formatTweakSuccess(app: Application, spec: TweakSpec, result: TweakResult): String {
+        val diff = if (result.afterValue != null) {
+            app.getString(R.string.tweak_diff_fmt, result.beforeValue ?: "?", result.afterValue)
+        } else {
+            ""
+        }
+        return app.getString(R.string.tweak_done, spec.title, diff)
+    }
+
+    private fun formatTweakError(app: Application, spec: TweakSpec, result: TweakResult): String {
+        return when (result.error) {
+            TweakError.GATING_VLINKER_REQUIRED -> app.getString(R.string.tweak_err_vlinker_required)
+            TweakError.NO_ECU_RESPONSE -> app.getString(R.string.tweak_err_failed_fmt, spec.title, app.getString(R.string.tweak_err_no_ecu))
+            TweakError.VERIFY_FAILED -> app.getString(
+                R.string.tweak_err_verify_fmt,
+                spec.title,
+                result.beforeValue ?: "?",
+                result.afterValue ?: "?",
+                result.expectedValue ?: "?"
+            )
+            TweakError.WRITE_FAILED, TweakError.EXCEPTION, null ->
+                app.getString(R.string.tweak_err_failed_fmt, spec.title, result.rawDetail ?: app.getString(R.string.tweak_err_no_ecu))
         }
     }
 
