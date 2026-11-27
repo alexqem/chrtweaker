@@ -122,6 +122,10 @@ def _atf_variants(cmd: str) -> list[tuple[str, int, int, object]]:
             ("JOBD var · SBI=2 DL=2 · raw/256-40", 2, 2, lambda r: r / 256 - 40),
             ("JOBD var · SBI=6 DL=2 · raw/256-40", 6, 2, lambda r: r / 256 - 40),
         ]
+    if cmd == "221627":
+        return [
+            ("221627 TNGA UDS · SBI=0 DL=2 · raw/256-40", 0, 2, lambda r: r / 256 - 40),
+        ]
     return [
         ("2182 Pan · SBI=0 DL=2 · raw/256-40", 0, 2, lambda r: r / 256 - 40),
         ("2182 Post-Converter · SBI=2 DL=2 · raw/256-40", 2, 2, lambda r: r / 256 - 40),
@@ -154,7 +158,7 @@ def decode_atf(cmd: str, payload: list[int]) -> tuple[float | None, list[tuple[s
 # commands tried for the cvt_temp column, in order (functional 7DF — no ATSH).
 # 01B4 first: it is a plain Mode-01 request — the transport this clone handles
 # perfectly (rea: Toyota OBD-II/EOBD ~2010-2022 CAN profile).
-CVT_CMDS = ("01B4", "21D9", "2182")
+CVT_CMDS = ("01B4", "21D9", "2182", "221627")
 
 
 def probe_cvt(conn, physical: bool = False) -> tuple[float | None, str | None]:

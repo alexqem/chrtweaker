@@ -19,6 +19,15 @@ class ProfilesAndTweaksTest(unittest.TestCase):
         abs_spec = tweaks.TWEAK_MAP["abs_inspection"]
         self.assertEqual(abs_spec.session_cmd, "1003")
 
+    def test_cvt_221627_decode(self) -> None:
+        from mycar import toyota
+
+        self.assertIn("221627", toyota.CVT_CMDS)
+        # (0x69 * 256 + 0x00) / 256 - 40 = 105 - 40 = 65.0 C
+        val, cands = toyota.decode_atf("221627", [0x69, 0x00])
+        self.assertEqual(val, 65.0)
+        self.assertTrue(cands)
+
 
 if __name__ == "__main__":
     unittest.main()

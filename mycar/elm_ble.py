@@ -16,7 +16,9 @@ import time
 
 from mycar.elm import ElmBase, ElmError, PROMPT  # noqa: F401  (re-export for connection.py)
 
-WRITE_NOTIFY_CHAR = "0000fff1-0000-1000-8000-00805f9b34fb"
+NOTIFY_CHAR = "0000fff1-0000-1000-8000-00805f9b34fb"
+WRITE_CHAR = "0000fff2-0000-1000-8000-00805f9b34fb"
+WRITE_NOTIFY_CHAR = NOTIFY_CHAR  # backwards-compatible alias
 
 
 def scan_ble(timeout: float = 6.0) -> str | None:
@@ -55,7 +57,8 @@ class ElmBLE(ElmBase):
 
         self.address = address
         self.timeout = timeout
-        self._char = WRITE_NOTIFY_CHAR
+        self._notify_char = NOTIFY_CHAR
+        self._write_char = NOTIFY_CHAR
         self._buf = bytearray()
         self._lock = threading.Lock()
         self._connected = False
@@ -96,7 +99,18 @@ class ElmBLE(ElmBase):
                 self._buf.extend(data)
 
         await self._client.connect()
-        await self._client.start_notify(self._char, on_notify)
+        # Discover FFF2 write characteristic if present (vLinker FD+ / dual-char ELM)
+        notify_uuid = NOTIFY_CHAR
+        write_uuid = NOTIFY_CHAR
+        for service in getattr(self._client, "services", []) or []:
+            chars = {str(c.uuid).lower(): c for c in getattr(service, "characteristics", [])}
+            if WRITE_CHAR in chars and NOTIFY_CHAR in chars:
+                notify_uuid = NOTIFY_CHAR
+                write_uuid = WRITE_CHAR
+                break
+        self._notify_char = notify_uuid
+        self._write_char = write_uuid
+        await self._client.start_notify(self._notify_char, on_notify)
         self._connected = True
 
     def _on_drop(self, *_args):
@@ -114,7 +128,7 @@ class ElmBLE(ElmBase):
             raise ConnectionError("BLE link dropped")
         with self._lock:
             self._buf.clear()
-        self._run(self._client.write_gatt_char(self._char, cmd.encode() + b"\r"))
+        self._run(self._client.write_gatt_char(self._write_char, cmd.encode() + b"\r"))
         if wait:
             time.sleep(wait)
         deadline = time.monotonic() + self.timeout
