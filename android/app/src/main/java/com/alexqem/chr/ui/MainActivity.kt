@@ -77,13 +77,14 @@ class MainActivity : ComponentActivity() {
                 "${applicationContext.packageName}.fileprovider",
                 file
             )
+            val mimeType = if (file.name.endsWith(".tar.gz")) "application/gzip" else "text/csv"
             val intent = Intent(Intent.ACTION_SEND).apply {
-                type = "text/csv"
+                type = mimeType
                 putExtra(Intent.EXTRA_STREAM, uri)
-                putExtra(Intent.EXTRA_SUBJECT, "C-HR Cold Start Session Log: ${file.name}")
+                putExtra(Intent.EXTRA_SUBJECT, "C-HR Session Log: ${file.name}")
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
-            startActivity(Intent.createChooser(intent, "Share Session CSV"))
+            startActivity(Intent.createChooser(intent, "Share Session"))
         } catch (e: Exception) {
             Toast.makeText(this, "Error sharing file: ${e.message}", Toast.LENGTH_SHORT).show()
         }

@@ -11,6 +11,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -26,6 +27,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.alexqem.chr.core.common.VehicleConstants
+import com.alexqem.chr.core.database.SessionEntity
+import com.alexqem.chr.core.model.SensorSample
 import com.alexqem.chr.core.model.VehicleProfile
 import com.alexqem.chr.core.model.VehicleProfileRegistry
 import com.alexqem.chr.service.LiveSessionState
@@ -52,6 +55,9 @@ fun DashboardScreen(
     val tweakLogs by viewModel.tweakLogs.collectAsState()
     val selectedProfileId by viewModel.selectedProfileId.collectAsState()
     val activeProfile by viewModel.activeProfile.collectAsState()
+    val allSessions by viewModel.allSessions.collectAsState()
+    val selectedHistorySession by viewModel.selectedHistorySession.collectAsState()
+    val selectedHistorySamples by viewModel.selectedHistorySamples.collectAsState()
 
     var showDevicePicker by remember { mutableStateOf(false) }
     var showProfilePicker by remember { mutableStateOf(false) }
@@ -140,10 +146,23 @@ fun DashboardScreen(
                     onClick = { activeTab = 2 },
                     text = { Text("HUD", fontSize = 12.sp, fontWeight = FontWeight.SemiBold) }
                 )
+                Tab(
+                    selected = activeTab == 3,
+                    onClick = { activeTab = 3 },
+                    text = { Text("История", fontSize = 12.sp, fontWeight = FontWeight.SemiBold) }
+                )
             }
             Spacer(modifier = Modifier.height(10.dp))
 
-            if (activeTab == 2) {
+            if (activeTab == 3) {
+                SessionsHistoryTab(
+                    sessions = allSessions,
+                    selectedSession = selectedHistorySession,
+                    selectedSamples = selectedHistorySamples,
+                    onSelectSession = { viewModel.selectHistorySession(it) },
+                    onShareSession = { session -> viewModel.shareSessionBundle(session, onShareCsv) }
+                )
+            } else if (activeTab == 2) {
                 HudTab(state = state, profile = activeProfile)
             } else if (activeTab == 1) {
                 EcuTweaksTab(
@@ -870,5 +889,91 @@ fun ControlPanel(
                 )
             }
         }
+    }
+}
+
+@Composable
+fun SessionsHistoryTab(
+    sessions: List<SessionEntity>,
+    selectedSession: SessionEntity?,
+    selectedSamples: List<SensorSample>,
+    onSelectSession: (SessionEntity?) -> Unit,
+    onShareSession: (SessionEntity) -> Unit
+) {
+    if (selectedSession != null) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                TextButton(onClick = { onSelectSession(null) }) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Назад к списку", fontSize = 12.sp)
+                }
+                IconButton(onClick = { onShareSession(selectedSession) }) {
+                    Icon(Icons.Default.Share, contentDescription = "Share session", tint = AccentBlue)
+                }
+            }
+            Text(
+                text = "${selectedSession.csvFile.removeSuffix(".csv")} · ${selectedSession.rows} строк",
+                color = TextPrimary,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+            if (selectedSamples.isEmpty()) {
+                Text("Нет сэмплов в базе для этой сессии.", color = TextSecondary, fontSize = 12.sp)
+            } else {
+                TelemetryChartsSection(history = selectedSamples)
+            }
+            Spacer(modifier = Modifier.height(24.dp))
+        }
+        return
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (sessions.isEmpty()) {
+            Text(
+                "Сохранённых сессий пока нет. Запустите сессию во вкладке Телеметрия.",
+                color = TextSecondary,
+                fontSize = 13.sp
+            )
+        } else {
+            sessions.forEach { session ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(CardBg)
+                        .border(1.dp, BorderLine, RoundedCornerShape(10.dp))
+                        .clickable { onSelectSession(session) }
+                        .padding(12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = session.csvFile.removeSuffix(".csv"),
+                            color = TextPrimary,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            fontFamily = FontFamily.Monospace
+                        )
+                        val coolantStr = session.startCoolantC?.let { String.format(Locale.US, "%.1f°C", it) } ?: "—"
+                        val warmStr = session.warmAtS?.let { String.format(Locale.US, " · прогрев %.0fс", it) } ?: ""
+                        Text(
+                            text = "${session.mode} · старт $coolantStr · ${session.rows} строк$warmStr",
+                            color = TextSecondary,
+                            fontSize = 11.sp
+                        )
+                    }
+                    IconButton(onClick = { onShareSession(session) }) {
+                        Icon(Icons.Default.Share, contentDescription = "Share session", tint = CoolantBlue)
+                    }
+                }
+            }
+        }
+        Spacer(modifier = Modifier.height(24.dp))
     }
 }

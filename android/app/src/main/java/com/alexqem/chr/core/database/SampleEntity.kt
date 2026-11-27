@@ -39,4 +39,26 @@ data class SampleEntity(
     val runtime: Double?,
     val cvtTemp: Double?,
     val cvtRaw: String?
-)
+) {
+    fun toSensorSample(): com.alexqem.chr.core.model.SensorSample = com.alexqem.chr.core.model.SensorSample(
+        ts = ts,
+        rpm = rpm,
+        speed = speed,
+        coolant = coolant,
+        oilTemp = oilTemp,
+        iat = iat,
+        baro = baro,
+        maf = maf,
+        load = load,
+        stft = stft,
+        ltft = ltft,
+        fuelStatus = fuelStatus,
+        catalyst = catalyst,
+        timing = timing,
+        throttle = throttle,
+        voltage = voltage,
+        runtime = runtime,
+        cvtTemp = cvtTemp,
+        cvtRaw = cvtRaw
+    )
+}

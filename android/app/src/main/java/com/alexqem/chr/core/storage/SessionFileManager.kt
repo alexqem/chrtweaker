@@ -5,6 +5,8 @@ import android.content.Context
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
+import com.alexqem.chr.core.database.SampleEntity
+import com.alexqem.chr.core.database.SessionEntity
 import com.alexqem.chr.core.model.SensorSample
 import com.alexqem.chr.core.model.SessionMeta
 import com.google.gson.GsonBuilder
@@ -99,6 +101,48 @@ class SessionFileManager(private val context: Context) {
             FileOutputStream(outFile).use { out -> writeTarGz(files, out) }
         }
         archiveName
+    }
+
+    fun exportSessionBundle(session: SessionEntity, samples: List<SampleEntity>): Result<File> = runCatching {
+        val baseName = session.csvFile.removeSuffix(".csv")
+        val exportDir = File(context.cacheDir, "exports").apply { if (!exists()) mkdirs() }
+        val archiveFile = File(exportDir, "$baseName.tar.gz")
+
+        val logsDir = getLogsDir()
+        val csvFile = File(logsDir, session.csvFile)
+        val metaFile = File(logsDir, "$baseName.meta.json")
+
+        val tempFiles = mutableListOf<File>()
+        val bundleFiles = mutableListOf<File>()
+
+        if (csvFile.exists()) {
+            bundleFiles.add(csvFile)
+        } else {
+            val reconstructedCsv = File(exportDir, session.csvFile)
+            openCsvWriter(reconstructedCsv).use { writer ->
+                for (s in samples) {
+                    writeCsvRow(writer, s.toSensorSample())
+                }
+            }
+            bundleFiles.add(reconstructedCsv)
+            tempFiles.add(reconstructedCsv)
+        }
+
+        if (metaFile.exists()) {
+            bundleFiles.add(metaFile)
+        } else {
+            val reconstructedMeta = File(exportDir, "$baseName.meta.json")
+            reconstructedMeta.writeText(session.metaJson)
+            bundleFiles.add(reconstructedMeta)
+            tempFiles.add(reconstructedMeta)
+        }
+
+        try {
+            FileOutputStream(archiveFile).use { out -> writeTarGz(bundleFiles, out) }
+        } finally {
+            tempFiles.forEach { it.delete() }
+        }
+        archiveFile
     }
 
     private fun writeTarGz(files: List<File>, rawOut: OutputStream) {

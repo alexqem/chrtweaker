@@ -13,14 +13,18 @@ import com.alexqem.chr.ChrApp
 import com.alexqem.chr.core.ble.BleScanner
 import com.alexqem.chr.core.ble.DiscoveredBleDevice
 import com.alexqem.chr.core.database.LtftTrendCalculator
+import com.alexqem.chr.core.database.SessionEntity
+import com.alexqem.chr.core.model.SensorSample
 import com.alexqem.chr.core.model.VehicleProfile
 import com.alexqem.chr.core.model.VehicleProfileRegistry
 import com.alexqem.chr.core.storage.SessionFileManager
 import com.alexqem.chr.service.LiveSessionState
 import com.alexqem.chr.service.ObdLoggingService
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.io.File
 import java.lang.ref.WeakReference
@@ -82,6 +86,15 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         resolveActiveProfile(_selectedProfileId.value, null)
     )
     val activeProfile: StateFlow<VehicleProfile> = _activeProfile.asStateFlow()
+
+    val allSessions: StateFlow<List<SessionEntity>> = db.sessionDao().getAllSessions()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    private val _selectedHistorySession = MutableStateFlow<SessionEntity?>(null)
+    val selectedHistorySession: StateFlow<SessionEntity?> = _selectedHistorySession.asStateFlow()
+
+    private val _selectedHistorySamples = MutableStateFlow<List<SensorSample>>(emptyList())
+    val selectedHistorySamples: StateFlow<List<SensorSample>> = _selectedHistorySamples.asStateFlow()
 
     private val serviceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
@@ -223,6 +236,35 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun clearExportStatus() {
         _exportStatus.value = null
+    }
+
+    fun selectHistorySession(session: SessionEntity?) {
+        _selectedHistorySession.value = session
+        if (session == null) {
+            _selectedHistorySamples.value = emptyList()
+            return
+        }
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            val rows = db.sampleDao().getSamplesForSession(session.id)
+            _selectedHistorySamples.value = rows.map { it.toSensorSample() }
+        }
+    }
+
+    fun shareSessionBundle(session: SessionEntity, onReady: (File) -> Unit) {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            val rows = db.sampleDao().getSamplesForSession(session.id)
+            val result = fileManager.exportSessionBundle(session, rows)
+            result.fold(
+                onSuccess = { file ->
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        onReady(file)
+                    }
+                },
+                onFailure = { err ->
+                    _exportStatus.value = "Export failed: ${err.message}"
+                }
+            )
+        }
     }
 
     fun isVLinkerConnected(): Boolean =
