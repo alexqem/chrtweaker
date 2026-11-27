@@ -1,5 +1,6 @@
 package com.alexqem.chr.core.elm
 
+import android.util.Log
 import com.alexqem.chr.core.common.ElmConstants
 import com.alexqem.chr.core.model.CarIdentity
 import com.alexqem.chr.core.sensors.PidSpec
@@ -81,6 +82,70 @@ object ElmProtocol {
             }
         }
         return Pair(null, null)
+    }
+
+    data class CapabilityProbeResult(
+        val supported: Map<String, String>,
+        val logs: List<String>
+    )
+
+    suspend fun probeExtendedCapabilities(
+        conn: ElmConnection,
+        physicalSupported: Boolean,
+        hybridProfile: Boolean
+    ): CapabilityProbeResult {
+        if (!physicalSupported) {
+            val msg = "Extended ECU probe (7C0/700/7D2) skipped: adapter lacks physical ATSH"
+            Log.i("ChrProbe", msg)
+            return CapabilityProbeResult(emptyMap(), listOf(msg))
+        }
+
+        val supported = linkedMapOf<String, String>()
+        val logs = mutableListOf<String>()
+
+        suspend fun probeBlock(header: String, label: String, cmds: List<Pair<String, String>>) {
+            try {
+                conn.send("ATSH $header", timeoutMs = ElmConstants.TIMEOUT_QUICK_MS)
+                for ((cmd, name) in cmds) {
+                    val reply = queryRaw(conn, cmd, timeoutMs = ElmConstants.TIMEOUT_QUICK_MS)
+                    if (reply != null) {
+                        val compact = ElmParser.tokenize(reply).joinToString(" ")
+                        supported["$header:$cmd"] = compact
+                        val line = "OK $header $cmd ($name): $compact"
+                        Log.i("ChrProbe", line)
+                        logs.add(line)
+                    } else {
+                        Log.i("ChrProbe", "SILENT $header $cmd ($name)")
+                    }
+                }
+            } catch (e: Exception) {
+                Log.w("ChrProbe", "Error probing $label ($header): ${e.message}")
+            } finally {
+                runCatching { conn.send("ATSH 7DF", timeoutMs = ElmConstants.TIMEOUT_QUICK_MS) }
+            }
+        }
+
+        probeBlock(
+            "7C0",
+            "Cluster",
+            listOf("21A7" to "seatbelt_bitmap", "21AC" to "reverse_beep", "2168" to "cluster_brightness")
+        )
+        probeBlock(
+            "700",
+            "ECM UDS",
+            listOf("2210A5" to "misfire_all", "22105C" to "knock_learn", "221F5C" to "oil_temp_uds", "221019" to "rail_p_uds")
+        )
+        if (hybridProfile) {
+            probeBlock(
+                "7D2",
+                "Hybrid ECU",
+                listOf("221F5B" to "hv_soc", "2210A5" to "mg2_inv_temp", "221040" to "transaxle_oil_temp")
+            )
+        }
+        if (logs.isEmpty()) {
+            logs.add("Extended ECU probe (7C0/700): no extra PIDs answered")
+        }
+        return CapabilityProbeResult(supported, logs)
     }
 
     suspend fun readCarId(conn: ElmConnection): CarIdentity {

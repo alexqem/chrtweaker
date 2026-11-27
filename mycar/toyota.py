@@ -199,6 +199,30 @@ def probe_cvt(conn, physical: bool = False) -> tuple[float | None, str | None]:
     return None, None
 
 
+def probe_extended_capabilities(conn, physical: bool = False, hybrid: bool = False) -> dict[str, str]:
+    """Probe 0x7C0 (cluster), 0x700 (ECM UDS), and 0x7D2 (hybrid ECU) when physical ATSH works."""
+    if not physical:
+        return {}
+    found: dict[str, str] = {}
+    blocks = [
+        ("7C0", [("21A7", "seatbelt_bitmap"), ("21AC", "reverse_beep"), ("2168", "cluster_brightness")]),
+        ("700", [("2210A5", "misfire_all"), ("22105C", "knock_learn"), ("221F5C", "oil_temp_uds"), ("221019", "rail_p_uds")]),
+    ]
+    if hybrid:
+        blocks.append(("7D2", [("221F5B", "hv_soc"), ("2210A5", "mg2_inv_temp"), ("221040", "transaxle_oil_temp")]))
+    try:
+        for hdr, cmds in blocks:
+            if "OK" not in (conn.send(f"ATSH{hdr}") or ""):
+                continue
+            for cmd, name in cmds:
+                r = conn.query_raw(cmd)
+                if r:
+                    found[f"{hdr}:{cmd}"] = f"{name}={r.strip()}"
+    finally:
+        conn.send("ATSH7DF")
+    return found
+
+
 # ----------------------------------------------- multi-request (Mode 01)
 
 MAX_MULTI_PIDS = 6  # Car Scanner OBDRequestQueueOptimizer.OptimizeV2 limit

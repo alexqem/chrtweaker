@@ -46,38 +46,39 @@ fun TelemetryChartsSection(history: List<SensorSample>) {
             modifier = Modifier.padding(top = 6.dp)
         )
 
-        TelemetryChartCard(
-            title = "Temperatures (°C)",
-            series = listOf(
-                ChartSeries("Coolant", CoolantBlue, history.map { it.coolant }),
-                ChartSeries("Oil", OilAmber, history.map { it.oilTemp }),
-                ChartSeries("IAT", IatGreen, history.map { it.iat })
-            )
-        )
+        val tempSeries = listOf(
+            ChartSeries("Coolant", CoolantBlue, history.map { it.coolant }),
+            ChartSeries("Oil", OilAmber, history.map { it.oilTemp }),
+            ChartSeries("IAT", IatGreen, history.map { it.iat }),
+            ChartSeries("CVT", CatLime, history.map { it.cvtTemp })
+        ).filter { s -> s.values.any { it != null } }
+        if (tempSeries.isNotEmpty()) {
+            TelemetryChartCard(title = "Temperatures (°C)", series = tempSeries)
+        }
 
-        TelemetryChartCard(
-            title = "Engine Load (RPM / MAF)",
-            series = listOf(
-                ChartSeries("RPM", RpmRed, history.map { it.rpm }),
-                ChartSeries("MAF×100", MafBlue, history.map { it.maf?.times(100.0) })
-            )
-        )
+        val loadSeries = listOf(
+            ChartSeries("RPM", RpmRed, history.map { it.rpm }),
+            ChartSeries("MAF×100", MafBlue, history.map { it.maf?.times(100.0) })
+        ).filter { s -> s.values.any { it != null } }
+        if (loadSeries.isNotEmpty()) {
+            TelemetryChartCard(title = "Engine Load (RPM / MAF)", series = loadSeries)
+        }
 
-        TelemetryChartCard(
-            title = "Fuel Trims (%)",
-            series = listOf(
-                ChartSeries("STFT", StftRose, history.map { it.stft }),
-                ChartSeries("LTFT", LtftOrange, history.map { it.ltft })
-            )
-        )
+        val trimSeries = listOf(
+            ChartSeries("STFT", StftRose, history.map { it.stft }),
+            ChartSeries("LTFT", LtftOrange, history.map { it.ltft })
+        ).filter { s -> s.values.any { it != null } }
+        if (trimSeries.isNotEmpty()) {
+            TelemetryChartCard(title = "Fuel Trims (%)", series = trimSeries)
+        }
 
-        TelemetryChartCard(
-            title = "Catalyst (°C) & Battery (V×20)",
-            series = listOf(
-                ChartSeries("Cat", CatLime, history.map { it.catalyst }),
-                ChartSeries("Volt×20", VoltTeal, history.map { it.voltage?.times(20.0) })
-            )
-        )
+        val catVoltSeries = listOf(
+            ChartSeries("Cat", CatLime, history.map { it.catalyst }),
+            ChartSeries("Volt×20", VoltTeal, history.map { it.voltage?.times(20.0) })
+        ).filter { s -> s.values.any { it != null } }
+        if (catVoltSeries.isNotEmpty()) {
+            TelemetryChartCard(title = "Catalyst (°C) & Battery (V×20)", series = catVoltSeries)
+        }
     }
 }
 

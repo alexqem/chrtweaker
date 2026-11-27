@@ -161,10 +161,22 @@ def capture(port: str | None, simulate: bool, max_minutes: float, sim_time_scale
         except Exception as e:
             log(f"  car id skipped: {e}")
 
+        ext_caps = toyota.probe_extended_capabilities(
+            conn,
+            physical=bool(getattr(conn, "supports_physical_atsh", False)),
+            hybrid=bool(config.PROFILE.get("hybrid_probe", False)),
+        )
+        if ext_caps:
+            for k, v in ext_caps.items():
+                log(f"  [capability] {k}: {v}")
+        else:
+            log("  [capability] 7C0/700/7D2 extended probe skipped or silent")
+
         meta = {
             "car": config.CAR,
             "profile": {"name": config.PROFILE_NAME, "label": config.PROFILE["label"]},
             "car_id": car_id,
+            "extended_capabilities": ext_caps,
             "mode": mode,
             "sim": bool(simulate),  # trend must not mix sim runs into LTFT drift
             "started_at": datetime.now(timezone.utc).isoformat(),

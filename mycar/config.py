@@ -77,6 +77,7 @@ def _load_profiles_and_norms() -> tuple[dict, dict]:
             "short": p["short"],
             "verified": bool(p.get("verified", False)),
             "cvt_probe": bool(p.get("cvt_probe", True)),
+            "hybrid_probe": bool(p.get("hybrid_probe", False)),
             "cold_start_analysis": bool(p.get("cold_start_analysis", True)),
             "vin_prefixes": list(p.get("vin_prefixes", [])),
             "calid_prefixes": list(p.get("calid_prefixes", [])),

@@ -62,7 +62,8 @@ data class LiveSessionState(
     val adapterInfo: String? = null,
     val isVLinkerCapable: Boolean = false,
     val profileId: String = VehicleProfileRegistry.DEFAULT_PROFILE_ID,
-    val detectedProfileId: String? = null
+    val detectedProfileId: String? = null,
+    val capabilityLog: List<String> = emptyList()
 )
 
 class ObdLoggingService : Service() {
@@ -236,6 +237,15 @@ class ObdLoggingService : Service() {
                 VehicleProfileRegistry.byId(requestedProfileId)
             }
             val effectiveMode = if (activeProfile.coldStartAnalysis) mode else "warm"
+            val capProbe = ElmProtocol.probeExtendedCapabilities(
+                conn = conn,
+                physicalSupported = capable && !useSimulator,
+                hybridProfile = activeProfile.hybridProbe
+            )
+            val customPidsMap = mutableMapOf(
+                "cvt_temp" to "01B4/21D9/2182/221627 via functional 7DF"
+            )
+            capProbe.supported.forEach { (k, v) -> customPidsMap[k] = v }
 
             // Step 6: Create storage files and DB record
             val files = fileManager.createSessionFiles(effectiveMode)
@@ -248,7 +258,8 @@ class ObdLoggingService : Service() {
                 mode = effectiveMode,
                 sim = useSimulator,
                 startedAt = isoFormat.format(Date()),
-                startCoolantC = initialCoolant
+                startCoolantC = initialCoolant,
+                customPids = customPidsMap
             )
 
             // Write initial meta immediately so session is tracked even if hard-killed
@@ -272,6 +283,7 @@ class ObdLoggingService : Service() {
                 mode = effectiveMode,
                 profileId = activeProfile.id,
                 detectedProfileId = detectedProfile?.id,
+                capabilityLog = capProbe.logs,
                 statusMessage = "Logging (${activeProfile.shortLabel} · $effectiveMode from ${initialCoolant ?: "—"}°C)"
             )
 

@@ -24,9 +24,12 @@ class ProfilesAndTweaksTest(unittest.TestCase):
         self.assertEqual(verified, ["8nrfts"])
 
     def test_tweaks_loaded_from_shared_json(self) -> None:
-        self.assertEqual(len(tweaks.TWEAKS), 17)
+        self.assertEqual(len(tweaks.TWEAKS), 18)
         abs_spec = tweaks.TWEAK_MAP["abs_inspection"]
         self.assertEqual(abs_spec.session_cmd, "1003")
+        rev = tweaks.TWEAK_MAP["reverse_beep_cluster"]
+        self.assertEqual(rev.ecu, "0x7C0")
+        self.assertEqual(rev.read_cmd, "21AC")
 
     def test_cvt_221627_decode(self) -> None:
         from mycar import toyota

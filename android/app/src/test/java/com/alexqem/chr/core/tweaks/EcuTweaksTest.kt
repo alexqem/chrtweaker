@@ -23,7 +23,7 @@ class EcuTweaksTest {
         val jsonFile = File("src/main/assets/tweaks.json").takeIf { it.exists() }
             ?: File("app/src/main/assets/tweaks.json")
         val enTweaks = EcuTweaks.parseJson(jsonFile.readText(Charsets.UTF_8), Locale.ENGLISH)
-        assertEquals(17, enTweaks.size)
+        assertEquals(18, enTweaks.size)
         val mirrors = enTweaks.first { it.id == "auto_fold_mirrors" }
         assertEquals("Auto-fold mirrors", mirrors.title)
     }

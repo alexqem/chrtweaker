@@ -46,6 +46,7 @@
       "short": "Toyota · 1.8 Hybrid 2ZR-FXE",
       "verified": false,
       "cvt_probe": true,
+      "hybrid_probe": true,
       "cold_start_analysis": false,
       "vin_prefixes": ["ZYX10", "ZYX11", "ZVW30", "ZVW50", "ZWE21"],
       "calid_prefixes": ["8966347"],

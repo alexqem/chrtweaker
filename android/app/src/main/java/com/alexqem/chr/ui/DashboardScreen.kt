@@ -165,7 +165,7 @@ fun DashboardScreen(
                     onShareSession = { session -> viewModel.shareSessionBundle(session, onShareCsv) }
                 )
             } else if (activeTab == 2) {
-                HudTab(state = state, profile = activeProfile)
+                HudTab(state = state, profile = activeProfile, history = sampleHistory)
             } else if (activeTab == 1) {
                 EcuTweaksTab(
                     isVLinker = viewModel.isVLinkerConnected(),
@@ -183,7 +183,28 @@ fun DashboardScreen(
             Spacer(modifier = Modifier.height(14.dp))
 
             // 2-Column Telemetry Grid
-            TelemetryCardsGrid(state, activeProfile)
+            TelemetryCardsGrid(state, activeProfile, sampleHistory)
+
+            if (state.capabilityLog.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(10.dp))
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(CardBg)
+                        .border(1.dp, BorderLine, RoundedCornerShape(8.dp))
+                        .padding(10.dp)
+                ) {
+                    Text("ECU Probe Log", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = TextSecondary)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = state.capabilityLog.joinToString("\n"),
+                        fontSize = 10.sp,
+                        fontFamily = FontFamily.Monospace,
+                        color = TextPrimary
+                    )
+                }
+            }
 
             Spacer(modifier = Modifier.height(18.dp))
 
@@ -493,8 +514,10 @@ fun EcuTweaksTab(
 }
 
 @Composable
-fun HudTab(state: LiveSessionState, profile: VehicleProfile) {
+fun HudTab(state: LiveSessionState, profile: VehicleProfile, history: List<SensorSample>) {
     val s = state.lastSample
+    val hasOil = s?.oilTemp != null || history.any { it.oilTemp != null }
+    val hasCvt = profile.cvtProbe && (s?.cvtTemp != null || history.any { it.cvtTemp != null })
     var isMirrored by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
     val view = androidx.compose.ui.platform.LocalView.current
     DisposableEffect(view) {
@@ -545,7 +568,9 @@ fun HudTab(state: LiveSessionState, profile: VehicleProfile) {
             }
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 HudGaugeCard(stringResource(R.string.hud_coolant), fmt(s?.coolant, 1), "°C", coolantColor, Modifier.weight(1f))
-                HudGaugeCard(stringResource(R.string.hud_oil), fmt(s?.oilTemp, 1), "°C", OilAmber, Modifier.weight(1f))
+                if (hasOil) {
+                    HudGaugeCard(stringResource(R.string.hud_oil), fmt(s?.oilTemp, 1), "°C", OilAmber, Modifier.weight(1f))
+                }
             }
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 HudGaugeCard("STFT", fmt(s?.stft, 1), "%", StftRose, Modifier.weight(1f))
@@ -553,13 +578,9 @@ fun HudTab(state: LiveSessionState, profile: VehicleProfile) {
             }
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 HudGaugeCard(stringResource(R.string.hud_voltage), fmt(s?.voltage, 2), "V", VoltTeal, Modifier.weight(1f))
-                HudGaugeCard(
-                    "CVT",
-                    if (profile.cvtProbe) fmt(s?.cvtTemp, 1) else "N/A",
-                    if (profile.cvtProbe) "°C" else "",
-                    CatLime,
-                    Modifier.weight(1f)
-                )
+                if (hasCvt) {
+                    HudGaugeCard("CVT", fmt(s?.cvtTemp, 1), "°C", CatLime, Modifier.weight(1f))
+                }
             }
         }
         Spacer(modifier = Modifier.height(24.dp))
@@ -627,8 +648,10 @@ fun SessionHeaderPills(state: LiveSessionState) {
 }
 
 @Composable
-fun TelemetryCardsGrid(state: LiveSessionState, profile: VehicleProfile) {
+fun TelemetryCardsGrid(state: LiveSessionState, profile: VehicleProfile, history: List<SensorSample>) {
     val sample = state.lastSample
+    val hasOil = sample?.oilTemp != null || history.any { it.oilTemp != null }
+    val hasCatalyst = sample?.catalyst != null || history.any { it.catalyst != null }
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -670,16 +693,18 @@ fun TelemetryCardsGrid(state: LiveSessionState, profile: VehicleProfile) {
                 highlightColor = WarnAmber,
                 icon = Icons.Default.ElectricCar
             )
-            // Oil Temp
-            StatCard(
-                modifier = Modifier.weight(1f),
-                title = stringResource(R.string.card_oil_title),
-                sub = "oil_temp",
-                value = sample?.oilTemp?.let { String.format(Locale.US, "%.1f", it) } ?: "—",
-                unit = "°C",
-                highlight = false,
-                icon = Icons.Default.OilBarrel
-            )
+            // Oil Temp (shown only when supported / answered)
+            if (hasOil) {
+                StatCard(
+                    modifier = Modifier.weight(1f),
+                    title = stringResource(R.string.card_oil_title),
+                    sub = "oil_temp",
+                    value = sample?.oilTemp?.let { String.format(Locale.US, "%.1f", it) } ?: "—",
+                    unit = "°C",
+                    highlight = false,
+                    icon = Icons.Default.OilBarrel
+                )
+            }
         }
 
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -700,16 +725,18 @@ fun TelemetryCardsGrid(state: LiveSessionState, profile: VehicleProfile) {
                 highlightColor = OkGreen,
                 icon = Icons.Default.Loop
             )
-            // Catalyst
-            StatCard(
-                modifier = Modifier.weight(1f),
-                title = stringResource(R.string.card_catalyst_title),
-                sub = "light-off ~350 °C",
-                value = sample?.catalyst?.let { String.format(Locale.US, "%.0f", it) } ?: "—",
-                unit = "°C",
-                highlight = false,
-                icon = Icons.Default.LocalFireDepartment
-            )
+            // Catalyst (shown only when supported / answered)
+            if (hasCatalyst) {
+                StatCard(
+                    modifier = Modifier.weight(1f),
+                    title = stringResource(R.string.card_catalyst_title),
+                    sub = "light-off ~350 °C",
+                    value = sample?.catalyst?.let { String.format(Locale.US, "%.0f", it) } ?: "—",
+                    unit = "°C",
+                    highlight = false,
+                    icon = Icons.Default.LocalFireDepartment
+                )
+            }
         }
 
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {

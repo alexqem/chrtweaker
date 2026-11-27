@@ -112,6 +112,20 @@
     "requires_vlinker": true
   },
   {
+    "id": "reverse_beep_cluster",
+    "title": "Зуммер заднего хода (приборка)",
+    "title_en": "Reverse gear chime (cluster)",
+    "description": "Писк в салоне при включении передачи R (0=вкл, 64=выкл)",
+    "description_en": "Cabin chime when shifting into Reverse (0=on, 64=off)",
+    "ecu": "0x7C0",
+    "protocol": "ISO 15765-4 CAN (ATSP6) · KWP 21/3B",
+    "kind": "switch",
+    "read_cmd": "21AC",
+    "write_on_cmd": "3BAC00",
+    "write_off_cmd": "3BAC40",
+    "requires_vlinker": true
+  },
+  {
     "id": "turn_signal_3",
     "title": "Поворотник: 3 мигания",
     "title_en": "Turn signal: 3 flashes",
