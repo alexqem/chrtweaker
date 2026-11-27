@@ -155,10 +155,14 @@ object VehicleProfileRegistry {
     fun all(): List<VehicleProfile> = cachedProfiles
 
     fun byId(id: String?): VehicleProfile {
-        val target = id?.trim()?.lowercase(Locale.US)
+        if (id.isNullOrBlank()) {
+            return cachedProfiles.firstOrNull { it.id == DEFAULT_PROFILE_ID }
+                ?: fallbackProfiles.first()
+        }
+        val target = id.trim().lowercase(Locale.US)
         return cachedProfiles.firstOrNull { it.id == target }
-            ?: cachedProfiles.firstOrNull { it.id == DEFAULT_PROFILE_ID }
-            ?: fallbackProfiles.first()
+            ?: cachedProfiles.firstOrNull { it.id == "generic" }
+            ?: fallbackProfiles.last()
     }
 
     fun detectFromIdentity(vin: String?, calId: String?): VehicleProfile? {
@@ -166,16 +170,26 @@ object VehicleProfileRegistry {
         val normCal = calId?.trim()?.uppercase(Locale.US).orEmpty()
         if (normVin.isEmpty() && normCal.isEmpty()) return null
 
-        for (profile in cachedProfiles) {
-            if (profile.id == "generic") continue
-            val vinMatch = profile.vinPrefixes.any { prefix ->
-                normVin.isNotEmpty() && (normVin.startsWith(prefix.uppercase(Locale.US)) || normVin.contains(prefix.uppercase(Locale.US)))
+        // Priority 1: VIN prefix match (startsWith only, never substring contains)
+        if (normVin.isNotEmpty()) {
+            for (profile in cachedProfiles) {
+                if (profile.id == "generic") continue
+                if (profile.vinPrefixes.any { normVin.startsWith(it.uppercase(Locale.US)) }) {
+                    return profile
+                }
             }
-            val calMatch = profile.calIdPrefixes.any { prefix ->
-                normCal.isNotEmpty() && normCal.startsWith(prefix.uppercase(Locale.US))
-            }
-            if (vinMatch || calMatch) return profile
         }
+
+        // Priority 2: Calibration ID (Mode 0904) prefix match
+        if (normCal.isNotEmpty()) {
+            for (profile in cachedProfiles) {
+                if (profile.id == "generic") continue
+                if (profile.calIdPrefixes.any { normCal.startsWith(it.uppercase(Locale.US)) }) {
+                    return profile
+                }
+            }
+        }
+
         return byId("generic")
     }
 }

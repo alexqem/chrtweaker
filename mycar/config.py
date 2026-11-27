@@ -58,7 +58,12 @@ CAR = {
 # the profile up from the session's meta.json.
 def _load_profiles_and_norms() -> tuple[dict, dict]:
     """Load vehicle profiles and base norms from shared Android assets JSON."""
-    raw = json.loads((ASSETS_DIR / "profiles.json").read_text(encoding="utf-8"))
+    profiles_path = ASSETS_DIR / "profiles.json"
+    if not profiles_path.exists():
+        raise FileNotFoundError(
+            f"Missing {profiles_path}. Run from repo root; shared JSON lives in android/app/src/main/assets/"
+        )
+    raw = json.loads(profiles_path.read_text(encoding="utf-8"))
     base_norms = {
         k: (tuple(v) if isinstance(v, list) else v)
         for k, v in raw["base_norms"].items()
@@ -109,15 +114,19 @@ DASHBOARD_PORT = 8600
 _BASE_NORMS = dict(NORMS)
 
 
+def resolve_profile(name: str | None) -> tuple[str, dict]:
+    """Resolve profile by name, falling back to 'generic' for unknown profiles."""
+    key = (name or "").strip().lower()
+    if key in PROFILES:
+        return key, PROFILES[key]
+    return "generic", PROFILES["generic"]
+
+
 def set_profile(name: str) -> None:
     """Switch vehicle profile (norms/CVT probe/analysis flags) at runtime."""
     global PROFILE_NAME, PROFILE, NORMS
-    key = (name or "").strip().lower()
-    prof = PROFILES.get(key)
-    if prof is None:
-        raise SystemExit(f"Unknown profile '{name}'. Known: {', '.join(PROFILES)}")
-    PROFILE_NAME, PROFILE = key, prof
-    NORMS = {**_BASE_NORMS, **prof["norms"]}
+    PROFILE_NAME, PROFILE = resolve_profile(name)
+    NORMS = {**_BASE_NORMS, **PROFILE["norms"]}
 
 
 set_profile(PROFILE_NAME)  # apply the env-selected profile at import

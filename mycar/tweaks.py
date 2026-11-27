@@ -30,7 +30,12 @@ class TweakSpec:
 
 
 def _load_tweaks() -> list[TweakSpec]:
-    raw = json.loads((ASSETS_DIR / "tweaks.json").read_text(encoding="utf-8"))
+    tweaks_path = ASSETS_DIR / "tweaks.json"
+    if not tweaks_path.exists():
+        raise FileNotFoundError(
+            f"Missing {tweaks_path}. Run from repo root; shared JSON lives in android/app/src/main/assets/"
+        )
+    raw = json.loads(tweaks_path.read_text(encoding="utf-8"))
     return [
         TweakSpec(
             id=item["id"],

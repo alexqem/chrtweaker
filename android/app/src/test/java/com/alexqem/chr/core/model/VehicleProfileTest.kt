@@ -47,4 +47,22 @@ class VehicleProfileTest {
     fun detectFromIdentity_returnsNullWhenIdentityEmpty() {
         assertNull(VehicleProfileRegistry.detectFromIdentity(null, ""))
     }
+
+    @Test
+    fun detectFromIdentity_vinStartsWithTakesPriorityOverCalIdAndNoSubstringMatch() {
+        // Substring "NGX10" inside a non-NGX10 VIN must NOT match 8nrfts
+        val substringOnly = VehicleProfileRegistry.detectFromIdentity("XXXNGX10ZZZ000001", null)
+        assertEquals("generic", substringOnly?.id)
+
+        // VIN match (Corolla ZRE182) must win over conflicting CalID (8966310)
+        val vinWins = VehicleProfileRegistry.detectFromIdentity("ZRE182-1234567", "8966310A1200")
+        assertEquals("2zrfe", vinWins?.id)
+    }
+
+    @Test
+    fun byId_unknownProfileFallsBackToGenericAndOnly8nrftsIsVerified() {
+        assertEquals("generic", VehicleProfileRegistry.byId("unknown_model_xyz").id)
+        val verifiedIds = VehicleProfileRegistry.all().filter { it.verified }.map { it.id }
+        assertEquals(listOf("8nrfts"), verifiedIds)
+    }
 }
