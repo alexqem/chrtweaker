@@ -37,8 +37,8 @@ jobs:
           if grep -nE '\b([0-9]|1[01])\.sp' android/app/src/main/java/com/alexqem/chr/ui/DashboardScreen.kt; then exit 1; fi
       - name: Connectivity probe for KSP POM
         run: |
-          curl -sI https://repo1.maven.org/maven2/com/google/devtools/ksp/com.google.devtools.ksp.gradle.plugin/2.0.0-1.0.22/com.google.devtools.ksp.gradle.plugin-2.0.0-1.0.22.pom | head -n 5
-          curl -sI https://plugins.gradle.org/m2/com/google/devtools/ksp/com.google.devtools.ksp.gradle.plugin/2.0.0-1.0.22/com.google.devtools.ksp.gradle.plugin-2.0.0-1.0.22.pom | head -n 5
+          curl -sfI https://repo1.maven.org/maven2/com/google/devtools/ksp/com.google.devtools.ksp.gradle.plugin/2.0.0-1.0.22/com.google.devtools.ksp.gradle.plugin-2.0.0-1.0.22.pom | head -n 5
+          curl -sfI https://plugins.gradle.org/m2/com/google/devtools/ksp/com.google.devtools.ksp.gradle.plugin/2.0.0-1.0.22/com.google.devtools.ksp.gradle.plugin-2.0.0-1.0.22.pom | head -n 5
       - name: Run unit tests, lint, debug & R8 release builds
         working-directory: android
         run: ./gradlew testDebugUnitTest lintDebug assembleDebug assembleRelease
