@@ -260,7 +260,8 @@ class ObdLoggingService : Service() {
                 sim = useSimulator,
                 startedAt = isoFormat.format(Date()),
                 startCoolantC = initialCoolant,
-                customPids = customPidsMap
+                customPids = customPidsMap,
+                ecuVersions = capProbe.ecuVersions
             )
 
             // Write initial meta immediately so session is tracked even if hard-killed

@@ -161,6 +161,14 @@ def capture(port: str | None, simulate: bool, max_minutes: float, sim_time_scale
         except Exception as e:
             log(f"  car id skipped: {e}")
 
+        ecu_versions = toyota.probe_ecu_versions(
+            conn,
+            physical=bool(getattr(conn, "supports_physical_atsh", False)),
+            hybrid=bool(config.PROFILE.get("hybrid_probe", False)),
+        )
+        for hdr, ver in ecu_versions.items():
+            log(f"  [ecu_version] {hdr}: {ver}")
+
         ext_caps = toyota.probe_extended_capabilities(
             conn,
             physical=bool(getattr(conn, "supports_physical_atsh", False)),
@@ -176,6 +184,7 @@ def capture(port: str | None, simulate: bool, max_minutes: float, sim_time_scale
             "car": config.CAR,
             "profile": {"name": config.PROFILE_NAME, "label": config.PROFILE["label"]},
             "car_id": car_id,
+            "ecu_versions": ecu_versions,
             "extended_capabilities": ext_caps,
             "mode": mode,
             "sim": bool(simulate),  # trend must not mix sim runs into LTFT drift

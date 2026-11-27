@@ -19,6 +19,7 @@ data class SessionMeta(
     @SerializedName("custom_pids") val customPids: Map<String, String> = mapOf(
         "cvt_temp" to "01B4/21D9/2182 via functional 7DF"
     ),
+    @SerializedName("ecu_versions") val ecuVersions: Map<String, String> = emptyMap(),
     @SerializedName("warm_at_s") val warmAtS: Double? = null,
     @SerializedName("completed") val completed: Boolean = false,
     @SerializedName("dtc") val dtc: Map<String, List<String>> = emptyMap(),

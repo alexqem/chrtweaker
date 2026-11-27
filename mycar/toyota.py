@@ -199,6 +199,64 @@ def probe_cvt(conn, physical: bool = False) -> tuple[float | None, str | None]:
     return None, None
 
 
+def _parse_ecu_ascii(raw: str | None, *header_bytes: str) -> str | None:
+    """Extract printable ASCII from a UDS (62 F1 90) or KWP (5A 88 01) reply."""
+    if not raw:
+        return None
+    tokens = [t.upper() for t in raw.replace("\r", " ").replace("\n", " ").split()]
+    h_upper = [h.upper() for h in header_bytes]
+    match_idx = -1
+    for i in range(len(tokens) - len(h_upper) + 1):
+        if tokens[i:i + len(h_upper)] == h_upper:
+            match_idx = i + len(h_upper)
+            break
+    if match_idx == -1:
+        compact = "".join(h_upper)
+        for i, tok in enumerate(tokens):
+            if tok == compact:
+                match_idx = i + 1
+                break
+    if match_idx == -1 or match_idx >= len(tokens):
+        return None
+    chars = []
+    for tok in tokens[match_idx:]:
+        try:
+            b = int(tok, 16)
+        except ValueError:
+            continue
+        if 0x20 <= b <= 0x7E:
+            chars.append(chr(b))
+    text = "".join(chars).strip()
+    return text or None
+
+
+def probe_ecu_versions(conn, physical: bool = False, hybrid: bool = False) -> dict[str, str]:
+    """Read ECU part numbers via UDS 22F190 (with 3E00+1001) or KWP 1A8801."""
+    if not physical:
+        return {}
+    addrs = ["7C0", "700", "750", "7C4", "7B0", "7A0", "780", "730"]
+    if hybrid:
+        addrs.extend(["7D2", "7E2"])
+    versions: dict[str, str] = {}
+    try:
+        for hdr in addrs:
+            conn.send(f"ATSH{hdr}")
+            conn.send("3E00")
+            conn.send("1001")
+            r22 = conn.query_raw("22F190")
+            ascii22 = _parse_ecu_ascii(r22, "62", "F1", "90")
+            if ascii22:
+                versions[hdr] = ascii22
+                continue
+            r1a = conn.query_raw("1A8801")
+            ascii1a = _parse_ecu_ascii(r1a, "5A", "88", "01")
+            if ascii1a:
+                versions[hdr] = ascii1a
+    finally:
+        conn.send("ATSH7DF")
+    return versions
+
+
 def probe_extended_capabilities(conn, physical: bool = False, hybrid: bool = False) -> dict[str, str]:
     """Probe extended ECU PIDs from shared profiles.json when physical ATSH works."""
     if not physical:

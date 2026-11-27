@@ -49,4 +49,15 @@ class ElmParserTest {
         assertEquals(258, ElmProtocol.parseUdsMisfireValue("62 10 A5 01 02", "10", "A5"))
         assertNull(ElmProtocol.parseUdsMisfireValue("7F 22 31", "10", "A5"))
     }
+
+    @Test
+    fun parseEcuAsciiReply_decodes22F190And1A8801() {
+        val uds = ElmProtocol.parseEcuAsciiReply("62 F1 90 38 39 36 36 33 31 30 41", "62", "F1", "90")
+        assertEquals("8966310A", uds)
+
+        val kwp = ElmProtocol.parseEcuAsciiReply("5A 88 01 38 39 39 38 31", "5A", "88", "01")
+        assertEquals("89981", kwp)
+
+        assertNull(ElmProtocol.parseEcuAsciiReply("NO DATA", "62", "F1", "90"))
+    }
 }

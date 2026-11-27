@@ -69,6 +69,19 @@ class ProfilesAndTweaksTest(unittest.TestCase):
         self.assertEqual(len(config.EXTENDED_PROBES), 21)
         self.assertTrue(all(not p["verified"] for p in config.EXTENDED_PROBES))
 
+    def test_parse_ecu_ascii_22f190_and_1a8801(self) -> None:
+        from mycar import toyota
+
+        self.assertEqual(
+            toyota._parse_ecu_ascii("62 F1 90 38 39 36 36 33 31 30 41", "62", "F1", "90"),
+            "8966310A",
+        )
+        self.assertEqual(
+            toyota._parse_ecu_ascii("5A 88 01 38 39 39 38 31", "5A", "88", "01"),
+            "89981",
+        )
+        self.assertIsNone(toyota._parse_ecu_ascii(None, "62", "F1", "90"))
+
 
 if __name__ == "__main__":
     unittest.main()

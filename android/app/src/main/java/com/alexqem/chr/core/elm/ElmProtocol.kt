@@ -87,8 +87,35 @@ object ElmProtocol {
 
     data class CapabilityProbeResult(
         val supported: Map<String, String>,
+        val ecuVersions: Map<String, String>,
         val logs: List<String>
     )
+
+    fun parseEcuAsciiReply(raw: String?, vararg headerBytes: String): String? {
+        if (raw.isNullOrBlank() || ElmParser.isNegative(raw)) return null
+        val tokens = ElmParser.tokenize(raw).map { it.uppercase(java.util.Locale.US) }
+        val hLen = headerBytes.size
+        var matchIdx = -1
+        for (i in 0..(tokens.size - hLen)) {
+            if ((0 until hLen).all { k -> tokens[i + k] == headerBytes[k].uppercase(java.util.Locale.US) }) {
+                matchIdx = i + hLen
+                break
+            }
+        }
+        val compact = headerBytes.joinToString("").uppercase(java.util.Locale.US)
+        if (matchIdx == -1) {
+            val cIdx = tokens.indexOfFirst { it == compact }
+            if (cIdx != -1) matchIdx = cIdx + 1
+        }
+        if (matchIdx == -1 || matchIdx >= tokens.size) return null
+
+        val bytes = mutableListOf<Byte>()
+        for (k in matchIdx until tokens.size) {
+            val b = tokens[k].toIntOrNull(16) ?: continue
+            if (b in 0x20..0x7E) bytes.add(b.toByte())
+        }
+        return String(bytes.toByteArray(), Charsets.US_ASCII).trim().ifBlank { null }
+    }
 
     suspend fun probeExtendedCapabilities(
         conn: ElmConnection,
@@ -98,11 +125,47 @@ object ElmProtocol {
         if (!physicalSupported) {
             val msg = "Extended ECU probe (7C0/700/7D2) skipped: adapter lacks physical ATSH"
             Log.i("ChrProbe", msg)
-            return CapabilityProbeResult(emptyMap(), listOf(msg))
+            return CapabilityProbeResult(emptyMap(), emptyMap(), listOf(msg))
         }
 
         val supported = linkedMapOf<String, String>()
+        val ecuVersions = linkedMapOf<String, String>()
         val logs = mutableListOf<String>()
+
+        val ecuAddrs = buildList {
+            addAll(listOf("7C0", "700", "750", "7C4", "7B0", "7A0", "780", "730"))
+            if (hybridProfile) addAll(listOf("7D2", "7E2"))
+        }
+        for (hdr in ecuAddrs) {
+            try {
+                conn.send("ATSH $hdr", timeoutMs = ElmConstants.TIMEOUT_QUICK_MS)
+                runCatching { conn.send("3E00", timeoutMs = ElmConstants.TIMEOUT_QUICK_MS) }
+                runCatching { conn.send("1001", timeoutMs = ElmConstants.TIMEOUT_QUICK_MS) }
+                val r22 = queryRaw(conn, "22F190", timeoutMs = ElmConstants.TIMEOUT_QUICK_MS)
+                val ascii22 = parseEcuAsciiReply(r22, "62", "F1", "90")
+                if (ascii22 != null) {
+                    ecuVersions[hdr] = ascii22
+                    val line = "OK $hdr 22F190: $ascii22"
+                    Log.i("ChrProbe", line)
+                    logs.add(line)
+                } else {
+                    val r1a = queryRaw(conn, "1A8801", timeoutMs = ElmConstants.TIMEOUT_QUICK_MS)
+                    val ascii1a = parseEcuAsciiReply(r1a, "5A", "88", "01")
+                    if (ascii1a != null) {
+                        ecuVersions[hdr] = ascii1a
+                        val line = "OK $hdr 1A8801: $ascii1a"
+                        Log.i("ChrProbe", line)
+                        logs.add(line)
+                    } else {
+                        Log.i("ChrProbe", "SILENT $hdr 22F190/1A8801")
+                    }
+                }
+            } catch (e: Exception) {
+                Log.w("ChrProbe", "Error reading ECU version $hdr: ${e.message}")
+            } finally {
+                runCatching { conn.send("ATSH 7DF", timeoutMs = ElmConstants.TIMEOUT_QUICK_MS) }
+            }
+        }
 
         val probesByHeader = VehicleProfileRegistry.extendedProbes()
             .filter { !it.hybridOnly || hybridProfile }
@@ -133,7 +196,7 @@ object ElmProtocol {
         if (logs.isEmpty()) {
             logs.add("Extended ECU probe: no extra PIDs answered")
         }
-        return CapabilityProbeResult(supported, logs)
+        return CapabilityProbeResult(supported, ecuVersions, logs)
     }
 
     data class MisfireStats(
