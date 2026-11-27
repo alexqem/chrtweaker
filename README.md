@@ -146,3 +146,23 @@ obdii_test/           # (вне mycar) быстрый тест BLE-трансп�
 | `docs/08` | реальная карта PID этой машины (свип, Mode 06/09) |
 | `docs/09` | расширенный доступ к ECU: CVT/гибрид/ABS/TPMS/кузов — команды и ограничения донгла |
 | `docs/rea-reference/` | выжимка реверса для C-HR: PID-каталог, DTC-протокол, AT-команды |
+
+
+---
+
+## C-HR OBD Tweaker (Carista-Compatible ECU Customizations)
+
+> **Совместимость:** Toyota C-HR NGX10 (2016–2020, 8NR-FTS 1.2T / K114 CVT). Для рестайлинга / более новых выпусков (2020+ TNGA) часть ECU использует UDS (`22`/`2E`) вместо KWP-over-CAN (`21`/`3B`) — перед записью проверяйте ответы в **Protocol Debug Log**.
+
+### Рекомендации по OBD-II адаптеру
+- **Рекомендуется:** **Vgate vLinker FD+ BT4.0** (или аналогичный STN/vLinker адаптер). Поддерживает длинные ISO-TP фреймы, смену заголовков (`ATSH 750`, `0x7C0`, `0x7C4`) и надёжную запись кастомизаций Body ECU.
+- **Дешёвые одноплатные ELM327 клоны (v1.5/v2.1):** подходят только для базовой телеметрии (`0x7DF`/`0x7E0`) и простых UDS-сбросов, но часто не поддерживают запись в Body ECU (`0x750`).
+
+### Новая вкладка `Carista Tweaks`
+- **Switches** (где статус считывается): Auto-Fold Mirrors, Remote Window Open/Close, Blink Hazards on Lock, Beep on Lock/Unlock, Eco Drive Indicator, A/C Eco Mode, Rear Seatbelt Chime.
+- **Buttons** (одноразовые / многозначные команды): One-Touch Turn Signal (3 / 5 / 7 flashes), ABS Inspection Mode (`0x7B0`), CVT/ATF Thermal Reset (`0x7E1`).
+- **Protocol Debug Log:** строковый лог внизу вкладки с кнопкой **Copy Log** (показывает протокол, `ATSH`, TX-команду и сырой RX-ответ для отладки или отправки в LLM).
+
+### Скачать Android APK
+- Готовый APK (`chrtweaker_v1.0.0.apk`) доступен в разделе **[GitHub Releases](../../releases/latest)**.
+- Подробнее о сборке и публикации: [docs/ANDROID_BUILD.md](docs/ANDROID_BUILD.md), требования к адаптеру и список настроек: [docs/ECU_TWEAKS.md](docs/ECU_TWEAKS.md).

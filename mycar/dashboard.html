@@ -264,6 +264,31 @@
     font-size: 11px;
     margin-top: 12px;
   }
+  /* Tabs & Carista Tweaks */
+  .tabs { display: flex; gap: 8px; margin-bottom: 16px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 10px; }
+  .tab-btn { background: var(--secondary); color: var(--muted-foreground); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 6px 14px; font-size: 12px; font-weight: 600; cursor: pointer; }
+  .tab-btn.active { background: var(--foreground); color: var(--background); border-color: var(--foreground); }
+  .tweak-banner { display: none; padding: 10px 14px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--card); margin-bottom: 14px; font-size: 12px; }
+  .tweak-banner.show { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .tweak-banner.ok { border-color: var(--ok); color: var(--on); }
+  .tweak-banner.err { border-color: var(--stft); color: var(--stft); }
+  .tweak-banner.busy { border-color: var(--coolant); color: var(--coolant); }
+  .tweak-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; margin-bottom: 18px; }
+  .tweak-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .tweak-title { font-weight: 600; font-size: 13px; color: var(--foreground); }
+  .tweak-desc { font-size: 11px; color: var(--muted-foreground); margin-top: 2px; }
+  .tweak-meta { font-size: 10px; font-family: monospace; color: var(--chart-tick); margin-top: 4px; }
+  .tweak-btn { background: var(--secondary); color: var(--foreground); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 6px 12px; font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+  .tweak-btn:hover { border-color: var(--border-hover); }
+  .switch { position: relative; display: inline-block; width: 38px; height: 22px; flex-shrink: 0; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .slider { position: absolute; cursor: pointer; inset: 0; background: var(--secondary); border: 1px solid var(--border); border-radius: 22px; transition: .2s; }
+  .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background: var(--muted-foreground); border-radius: 50%; transition: .2s; }
+  input:checked + .slider { background: rgba(34,197,94,0.2); border-color: var(--ok); }
+  input:checked + .slider:before { transform: translateX(16px); background: var(--ok); }
+  .debug-box { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; }
+  .debug-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 12px; font-weight: 600; color: var(--muted-foreground); }
+  .debug-log { width: 100%; min-height: 120px; background: var(--background); color: var(--foreground); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 8px; font: 11px/1.45 monospace; resize: vertical; }
 </style>
 </head>
 <body>
@@ -278,6 +303,28 @@
     <button class="btn" id="reset" title="Очистить вид и начать отрисовку с нуля. Логи (CSV/БД) не удаляются — запись продолжается.">↺ сброс вида</button>
     <span class="reset-note" id="reset-note"></span>
   </header>
+
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('telemetry', this)">Live Telemetry</button>
+    <button class="tab-btn" onclick="switchTab('tweaks', this)">ECU Tweaks</button>
+  </div>
+
+  <div id="tab-tweaks" style="display:none">
+    <div id="tweak-banner" class="tweak-banner">
+      <span id="tweak-banner-text"></span>
+      <button class="tweak-btn" onclick="document.getElementById('tweak-banner').classList.remove('show')">Dismiss</button>
+    </div>
+    <div id="tweak-grid" class="tweak-grid"></div>
+    <div class="debug-box">
+      <div class="debug-head">
+        <span>Protocol Debug Log (copy &amp; paste to LLM if needed)</span>
+        <button class="tweak-btn" onclick="copyTweakLog()">Copy Log</button>
+      </div>
+      <textarea id="tweak-log" class="debug-log" readonly placeholder="Commands, ECU headers, and raw responses will appear here..."></textarea>
+    </div>
+  </div>
+
+  <div id="tab-telemetry">
 
   <div class="grid cards" id="stats"></div>
 
@@ -650,5 +697,66 @@ function connect() {
 }
 connect();
 </script>
+<script>
+function switchTab(name, btn) {
+  document.getElementById('tab-telemetry').style.display = name === 'telemetry' ? '' : 'none';
+  document.getElementById('tab-tweaks').style.display = name === 'tweaks' ? '' : 'none';
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  if (name === 'tweaks' && !window._tweaksLoaded) loadTweaks();
+}
+
+function showTweakBanner(kind, text) {
+  const el = document.getElementById('tweak-banner');
+  el.className = 'tweak-banner show ' + kind;
+  document.getElementById('tweak-banner-text').textContent = text;
+}
+
+async function loadTweaks() {
+  window._tweaksLoaded = true;
+  try {
+    const res = await fetch('/api/tweaks');
+    const data = await res.json();
+    const grid = document.getElementById('tweak-grid');
+    grid.innerHTML = '';
+    for (const t of data.tweaks || []) {
+      const card = document.createElement('div');
+      card.className = 'tweak-card';
+      const info = `<div><div class="tweak-title">${t.title}</div><div class="tweak-desc">${t.description}</div><div class="tweak-meta">${t.ecu} · ${t.protocol}</div></div>`;
+      const ctrl = t.kind === 'switch'
+        ? `<label class="switch"><input type="checkbox" onchange="runTweak('${t.id}', this.checked)"><span class="slider"></span></label>`
+        : `<button class="tweak-btn" onclick="runTweak('${t.id}', true)">Execute</button>`;
+      card.innerHTML = info + ctrl;
+      grid.appendChild(card);
+    }
+  } catch (e) {
+    showTweakBanner('err', 'Failed to load tweaks: ' + e);
+  }
+}
+
+async function runTweak(id, enabled) {
+  showTweakBanner('busy', '⏳ Sending command (' + id + ')...');
+  try {
+    const res = await fetch('/api/tweak', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({id, enabled})
+    });
+    const data = await res.json();
+    showTweakBanner(data.ok ? 'ok' : 'err', (data.ok ? '✅ ' : '❌ ') + data.message);
+    const log = document.getElementById('tweak-log');
+    log.value += (log.value ? '\n' : '') + (data.log_line || JSON.stringify(data));
+    log.scrollTop = log.scrollHeight;
+  } catch (e) {
+    showTweakBanner('err', '❌ Request failed: ' + e);
+  }
+}
+
+function copyTweakLog() {
+  const log = document.getElementById('tweak-log');
+  navigator.clipboard?.writeText(log.value);
+}
+</script>
+</div>
 </body>
 </html>

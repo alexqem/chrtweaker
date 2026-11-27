@@ -14,10 +14,10 @@ from collections import deque
 from pathlib import Path
 
 import uvicorn
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse
+from fastapi import Body, FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.responses import HTMLResponse, JSONResponse
 
-from mycar import config, sensors
+from mycar import config, sensors, tweaks
 
 DASHBOARD_TTL_S = 3600  # hard lifetime: 1 hour, then the port is freed
 
@@ -69,6 +69,16 @@ def make_app(state: State) -> FastAPI:
     @app.get("/")
     def index():
         return HTMLResponse(PAGE)
+
+    @app.get("/api/tweaks")
+    def get_tweaks():
+        return JSONResponse({"tweaks": tweaks.list_tweaks()})
+
+    @app.post("/api/tweak")
+    def post_tweak(payload: dict = Body(...)):
+        tweak_id = str(payload.get("id", ""))
+        enabled = bool(payload.get("enabled", True))
+        return JSONResponse(tweaks.execute_tweak(tweak_id, enabled=enabled))
 
     @app.websocket("/ws")
     async def ws(sock: WebSocket):
