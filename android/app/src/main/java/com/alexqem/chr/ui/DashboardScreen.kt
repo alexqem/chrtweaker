@@ -123,11 +123,18 @@ fun DashboardScreen(
                     onClick = { activeTab = 1 },
                     text = { Text("ECU Tweaks", fontSize = 12.sp, fontWeight = FontWeight.SemiBold) }
                 )
+                Tab(
+                    selected = activeTab == 2,
+                    onClick = { activeTab = 2 },
+                    text = { Text("HUD", fontSize = 12.sp, fontWeight = FontWeight.SemiBold) }
+                )
             }
             Spacer(modifier = Modifier.height(10.dp))
 
-            if (activeTab == 1) {
-                CaristaTweaksTab(
+            if (activeTab == 2) {
+                HudTab(state = state)
+            } else if (activeTab == 1) {
+                EcuTweaksTab(
                     isVLinker = viewModel.isVLinkerConnected(),
                     isSim = useSimulator,
                     tweakStatus = tweakStatus,
@@ -255,7 +262,7 @@ fun DashboardScreen(
 }
 
 @Composable
-fun CaristaTweaksTab(
+fun EcuTweaksTab(
     isVLinker: Boolean,
     isSim: Boolean,
     tweakStatus: Pair<Boolean, String>?,
@@ -311,7 +318,7 @@ fun CaristaTweaksTab(
             }
         }
 
-        val visibleTweaks = com.alexqem.chr.core.tweaks.CaristaTweaks.ALL.filter {
+        val visibleTweaks = com.alexqem.chr.core.tweaks.EcuTweaks.ALL.filter {
             fullAccess || !it.requiresVLinker
         }
 
@@ -385,6 +392,60 @@ fun CaristaTweaksTab(
             )
         }
         Spacer(modifier = Modifier.height(24.dp))
+    }
+}
+
+@Composable
+fun HudTab(state: LiveSessionState) {
+    val s = state.lastSample
+    fun fmt(v: Double?, digits: Int = 0): String =
+        if (v != null && !v.isNaN()) String.format(Locale.US, "%.${digits}f", v) else "—"
+
+    val coolantColor = when {
+        s?.coolant == null -> TextSecondary
+        s.coolant < 60.0 -> ColdBlue
+        s.coolant in 82.0..95.0 -> OkGreen
+        s.coolant > 100.0 -> DangerRed
+        else -> WarnAmber
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            HudGaugeCard("СКОРОСТЬ", fmt(s?.speed), "км/ч", AccentBlue, Modifier.weight(1f))
+            HudGaugeCard("ОБОРОТЫ", fmt(s?.rpm), "RPM", RpmRed, Modifier.weight(1f))
+        }
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            HudGaugeCard("ОЖ (термостат 82–88)", fmt(s?.coolant, 1), "°C", coolantColor, Modifier.weight(1f))
+            HudGaugeCard("МАСЛО", fmt(s?.oilTemp, 1), "°C", OilAmber, Modifier.weight(1f))
+        }
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            HudGaugeCard("STFT", fmt(s?.stft, 1), "%", StftRose, Modifier.weight(1f))
+            HudGaugeCard("LTFT", fmt(s?.ltft, 1), "%", LtftOrange, Modifier.weight(1f))
+        }
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            HudGaugeCard("АКБ", fmt(s?.voltage, 2), "V", VoltTeal, Modifier.weight(1f))
+            HudGaugeCard("CVT", fmt(s?.cvtTemp, 1), "°C", CatPurple, Modifier.weight(1f))
+        }
+        Spacer(modifier = Modifier.height(24.dp))
+    }
+}
+
+@Composable
+fun HudGaugeCard(label: String, value: String, unit: String, accent: Color, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(CardBg)
+            .border(1.dp, BorderLine, RoundedCornerShape(12.dp))
+            .padding(16.dp)
+    ) {
+        Text(label, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = TextSecondary)
+        Spacer(modifier = Modifier.height(6.dp))
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(value, fontSize = 32.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, color = accent)
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(unit, fontSize = 13.sp, color = TextSecondary, modifier = Modifier.padding(bottom = 5.dp))
+        }
     }
 }
 

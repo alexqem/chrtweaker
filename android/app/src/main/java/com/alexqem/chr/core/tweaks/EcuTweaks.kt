@@ -22,7 +22,7 @@ data class TweakResult(
     val logLine: String
 )
 
-object CaristaTweaks {
+object EcuTweaks {
     val ALL: List<TweakSpec> = listOf(
         TweakSpec("auto_fold_mirrors", "Автоскладывание зеркал", "Зеркала сами складываются при закрытии машины", "0x750", "ISO 15765-4 CAN (ATSP6) · KWP 21/3B", true, "3BA701", "3BA700"),
         TweakSpec("comfort_open_windows", "Открыть окна с ключа", "Удерживайте кнопку открытия на брелоке, чтобы опустить все стёкла", "0x750", "ISO 15765-4 CAN (ATSP6) · KWP 21/3B", true, "3BB201", "3BB200"),
@@ -45,7 +45,13 @@ object CaristaTweaks {
         return lower.contains("vlinker") || lower.contains("vgate")
     }
 
-    fun execute(spec: TweakSpec, enabled: Boolean, isVLinker: Boolean, isSim: Boolean): TweakResult {
+    suspend fun execute(
+        spec: TweakSpec,
+        enabled: Boolean,
+        isVLinker: Boolean,
+        isSim: Boolean,
+        sendFn: (suspend (String) -> String)? = null
+    ): TweakResult {
         val ts = SimpleDateFormat("HH:mm:ss", Locale.US).format(Date())
         val cmd = if (enabled || spec.writeOffCmd == null) spec.writeOnCmd else spec.writeOffCmd
         val header = "ATSH ${spec.ecu.removePrefix("0x")}"
@@ -55,9 +61,25 @@ object CaristaTweaks {
             return TweakResult(false, msg, "[$ts] BLOCKED | ${spec.ecu} | $header | TX: $cmd | $msg")
         }
 
-        val posResp = "7B${cmd.drop(2).take(2)}"
-        val modeTag = if (isSim) "SIM" else "TX"
-        val logLine = "[$ts] $modeTag | ${spec.protocol} | $header | TX: $cmd | RX: $posResp"
-        return TweakResult(true, "${spec.title}: выполнено", logLine)
+        if (isSim || sendFn == null) {
+            val posResp = "7B${cmd.drop(2).take(2)}"
+            val modeTag = if (isSim) "SIM" else "OFFLINE"
+            val logLine = "[$ts] $modeTag | ${spec.protocol} | $header | TX: $cmd | RX: $posResp"
+            return TweakResult(true, "${spec.title}: выполнено", logLine)
+        }
+
+        return try {
+            sendFn(header)
+            val raw = sendFn(cmd).trim()
+            val ok = !raw.contains("7F", ignoreCase = true) &&
+                !raw.contains("ERROR", ignoreCase = true) &&
+                !raw.contains("NO DATA", ignoreCase = true) &&
+                !raw.contains("?")
+            val logLine = "[$ts] ${if (ok) "OK" else "FAIL"} | ${spec.protocol} | $header | TX: $cmd | RX: $raw"
+            TweakResult(ok, if (ok) "${spec.title}: выполнено" else "${spec.title}: ошибка ($raw)", logLine)
+        } catch (e: Exception) {
+            val logLine = "[$ts] EXC | ${spec.protocol} | $header | TX: $cmd | ERR: ${e.message}"
+            TweakResult(false, "${spec.title}: ошибка (${e.message})", logLine)
+        }
     }
 }

@@ -32,3 +32,6 @@ captures/
 *.jks
 *.apk
 *.aab
+
+# --- local planning ---
+plan.md

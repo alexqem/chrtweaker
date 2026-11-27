@@ -192,17 +192,20 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun isVLinkerConnected(): Boolean =
-        com.alexqem.chr.core.tweaks.CaristaTweaks.isVLinkerAdapter(_selectedDevice.value?.name)
+        com.alexqem.chr.core.tweaks.EcuTweaks.isVLinkerAdapter(_selectedDevice.value?.name)
 
     fun runTweak(spec: com.alexqem.chr.core.tweaks.TweakSpec, enabled: Boolean) {
-        val result = com.alexqem.chr.core.tweaks.CaristaTweaks.execute(
-            spec = spec,
-            enabled = enabled,
-            isVLinker = isVLinkerConnected(),
-            isSim = _useSimulator.value
-        )
-        _tweakStatus.value = result.ok to result.message
-        _tweakLogs.value = (_tweakLogs.value + result.logLine).takeLast(100)
+        _tweakStatus.value = true to "Применение: ${spec.title}..."
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            val result = com.alexqem.chr.core.tweaks.EcuTweaks.execute(
+                spec = spec,
+                enabled = enabled,
+                isVLinker = isVLinkerConnected(),
+                isSim = _useSimulator.value
+            )
+            _tweakStatus.value = result.ok to result.message
+            _tweakLogs.value = (_tweakLogs.value + result.logLine).takeLast(100)
+        }
     }
 
     fun clearTweakStatus() {

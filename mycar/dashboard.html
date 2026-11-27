@@ -266,6 +266,11 @@
   }
   /* Tabs & ECU Tweaker Tweaks */
   .tabs { display: flex; gap: 8px; margin-bottom: 16px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 10px; }
+  .hud-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+  .hud-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; }
+  .hud-label { font-size: 11px; font-weight: 600; color: var(--muted-foreground); text-transform: uppercase; letter-spacing: .04em; }
+  .hud-val { font-size: 36px; font-weight: 700; font-family: monospace; margin-top: 6px; }
+  .hud-unit { font-size: 13px; color: var(--muted-foreground); margin-left: 4px; }
   .tab-btn { background: var(--secondary); color: var(--muted-foreground); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 6px 14px; font-size: 12px; font-weight: 600; cursor: pointer; }
   .tab-btn.active { background: var(--foreground); color: var(--background); border-color: var(--foreground); }
   .tweak-banner { display: none; padding: 10px 14px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--card); margin-bottom: 14px; font-size: 12px; }
@@ -306,7 +311,20 @@
 
   <div class="tabs">
     <button class="tab-btn active" onclick="switchTab('telemetry', this)">Live Telemetry</button>
+    <button class="tab-btn" onclick="switchTab('hud', this)">HUD</button>
     <button class="tab-btn" onclick="switchTab('tweaks', this)">ECU Tweaks</button>
+  </div>
+
+  <div id="tab-hud" style="display:none">
+    <div class="hud-grid">
+      <div class="hud-card"><div class="hud-label">Скорость</div><div class="hud-val" style="color:var(--maf)" id="hud-speed">—<span class="hud-unit">км/ч</span></div></div>
+      <div class="hud-card"><div class="hud-label">Обороты</div><div class="hud-val" style="color:var(--rpm)" id="hud-rpm">—<span class="hud-unit">RPM</span></div></div>
+      <div class="hud-card"><div class="hud-label">ОЖ (82–88 °C)</div><div class="hud-val" style="color:var(--coolant)" id="hud-coolant">—<span class="hud-unit">°C</span></div></div>
+      <div class="hud-card"><div class="hud-label">Масло</div><div class="hud-val" style="color:var(--oil)" id="hud-oil">—<span class="hud-unit">°C</span></div></div>
+      <div class="hud-card"><div class="hud-label">STFT</div><div class="hud-val" style="color:var(--stft)" id="hud-stft">—<span class="hud-unit">%</span></div></div>
+      <div class="hud-card"><div class="hud-label">LTFT</div><div class="hud-val" style="color:var(--ltft)" id="hud-ltft">—<span class="hud-unit">%</span></div></div>
+      <div class="hud-card"><div class="hud-label">АКБ</div><div class="hud-val" style="color:var(--volt)" id="hud-volt">—<span class="hud-unit">V</span></div></div>
+    </div>
   </div>
 
   <div id="tab-tweaks" style="display:none">
@@ -700,6 +718,7 @@ connect();
 <script>
 function switchTab(name, btn) {
   document.getElementById('tab-telemetry').style.display = name === 'telemetry' ? '' : 'none';
+  document.getElementById('tab-hud').style.display = name === 'hud' ? '' : 'none';
   document.getElementById('tab-tweaks').style.display = name === 'tweaks' ? '' : 'none';
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');

@@ -114,7 +114,7 @@ class BleGattManager(
         }
     }
 
-    private fun findObdCharacteristics(g: BluetoothGatt): Pair<BluetoothGattCharacteristic?, BluetoothGattCharacteristic?> {
+    internal fun findObdCharacteristics(g: BluetoothGatt): Pair<BluetoothGattCharacteristic?, BluetoothGattCharacteristic?> {
         // 1. Exact FFF0 / FFF1 (or FFF2 write + FFF1 notify)
         g.getService(BleConstants.SERVICE_UUID)?.let { svc ->
             val fff1 = svc.getCharacteristic(BleConstants.CHAR_UUID)
@@ -151,7 +151,7 @@ class BleGattManager(
             BluetoothGattDescriptor.ENABLE_INDICATION_VALUE
         }
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            g.writeDescriptor(descriptor, value) == BluetoothGatt.GATT_SUCCESS
+            g.writeDescriptor(descriptor, value) == android.bluetooth.BluetoothStatusCodes.SUCCESS
         } else {
             @Suppress("DEPRECATION")
             descriptor.value = value
