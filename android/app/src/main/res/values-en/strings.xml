@@ -39,4 +39,21 @@
     <string name="tweaks_log_empty">ECU commands and responses will appear here…</string>
     <string name="history_empty">No saved sessions yet. Start a session in the Telemetry tab.</string>
     <string name="history_no_samples">No samples in database for this session.</string>
+    <string name="card_coolant_title">Coolant (ECT)</string>
+    <string name="card_coolant_sub">thermostat %1$d..%2$d °C</string>
+    <string name="card_rate_title">Coolant Rate</string>
+    <string name="card_rate_sub">last 60s</string>
+    <string name="card_rate_unit">°C/min</string>
+    <string name="card_engine_title">Engine</string>
+    <string name="card_engine_sub">idle norm %1$d..%2$d</string>
+    <string name="card_oil_title">Engine Oil</string>
+    <string name="card_loop_title">Fuel Loop</string>
+    <string name="card_loop_open_warm">OPEN · warm-up</string>
+    <string name="card_loop_open_load">OPEN · load</string>
+    <string name="card_catalyst_title">Catalyst</string>
+    <string name="card_trims_title">Fuel Trims</string>
+    <string name="card_voltage_title">12V System</string>
+    <string name="card_voltage_sub">alternator</string>
+    <string name="history_warm_fmt"> · warm %1$.0fs</string>
+    <string name="history_row_sub_fmt">%1$s · start %2$s · rows: %3$d%4$s</string>
 </resources>

@@ -6,6 +6,7 @@ Machine-specific secrets (the dongle's BLE address) live in .env — see
 
 import json
 import os
+import warnings
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -125,6 +126,12 @@ def resolve_profile(name: str | None) -> tuple[str, dict]:
 def set_profile(name: str) -> None:
     """Switch vehicle profile (norms/CVT probe/analysis flags) at runtime."""
     global PROFILE_NAME, PROFILE, NORMS
+    raw_key = (name or "").strip().lower()
+    if raw_key not in PROFILES:
+        warnings.warn(
+            f"Unknown profile '{name}' — falling back to 'generic'. Known: {', '.join(PROFILES)}",
+            stacklevel=2,
+        )
     PROFILE_NAME, PROFILE = resolve_profile(name)
     NORMS = {**_BASE_NORMS, **PROFILE["norms"]}
 

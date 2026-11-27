@@ -39,4 +39,21 @@
     <string name="tweaks_log_empty">Команды и ответы ECU появятся здесь…</string>
     <string name="history_empty">Сохранённых сессий пока нет. Запустите сессию во вкладке Телеметрия.</string>
     <string name="history_no_samples">Нет сэмплов в базе для этой сессии.</string>
+    <string name="card_coolant_title">ОЖ (Coolant)</string>
+    <string name="card_coolant_sub">термостат %1$d..%2$d °C</string>
+    <string name="card_rate_title">Скорость ОЖ</string>
+    <string name="card_rate_sub">за 60 сек</string>
+    <string name="card_rate_unit">°C/мин</string>
+    <string name="card_engine_title">Двигатель</string>
+    <string name="card_engine_sub">ХХ норма %1$d..%2$d</string>
+    <string name="card_oil_title">Масло ДВС</string>
+    <string name="card_loop_title">Петля смеси</string>
+    <string name="card_loop_open_warm">OPEN · прогрев</string>
+    <string name="card_loop_open_load">OPEN · нагрузка</string>
+    <string name="card_catalyst_title">Катализатор</string>
+    <string name="card_trims_title">Коррекции</string>
+    <string name="card_voltage_title">Бортсеть</string>
+    <string name="card_voltage_sub">генератор</string>
+    <string name="history_warm_fmt"> · прогрев %1$.0fс</string>
+    <string name="history_row_sub_fmt">%1$s · старт %2$s · строк: %3$d%4$s</string>
 </resources>

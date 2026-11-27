@@ -10,6 +10,15 @@ class ProfilesAndTweaksTest(unittest.TestCase):
         self.assertFalse(prof["cvt_probe"])
         self.assertFalse(prof["verified"])
 
+    def test_set_profile_warns_on_unknown_profile(self) -> None:
+        prev = config.PROFILE_NAME
+        try:
+            with self.assertWarns(UserWarning):
+                config.set_profile("2zfe")
+            self.assertEqual(config.PROFILE_NAME, "generic")
+        finally:
+            config.set_profile(prev)
+
     def test_only_8nrfts_is_verified(self) -> None:
         verified = [k for k, v in config.PROFILES.items() if v["verified"]]
         self.assertEqual(verified, ["8nrfts"])

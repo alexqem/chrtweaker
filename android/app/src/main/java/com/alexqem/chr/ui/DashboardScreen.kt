@@ -636,8 +636,8 @@ fun TelemetryCardsGrid(state: LiveSessionState, profile: VehicleProfile) {
             val isWarm = (sample?.coolant ?: 0.0) >= VehicleConstants.WARMED_UP_MIN_COOLANT_C
             StatCard(
                 modifier = Modifier.weight(1f),
-                title = "ОЖ (Coolant)",
-                sub = "термостат ${profile.thermostatMinC.toInt()}..${profile.thermostatMaxC.toInt()} °C",
+                title = stringResource(R.string.card_coolant_title),
+                sub = stringResource(R.string.card_coolant_sub, profile.thermostatMinC.toInt(), profile.thermostatMaxC.toInt()),
                 value = sample?.coolant?.let { String.format(Locale.US, "%.1f", it) } ?: "—",
                 unit = "°C",
                 highlight = isWarm,
@@ -647,10 +647,10 @@ fun TelemetryCardsGrid(state: LiveSessionState, profile: VehicleProfile) {
             // Warm-up rate
             StatCard(
                 modifier = Modifier.weight(1f),
-                title = "Скорость ОЖ",
-                sub = "за 60 сек",
+                title = stringResource(R.string.card_rate_title),
+                sub = stringResource(R.string.card_rate_sub),
                 value = state.warmUpRateCPerMin?.let { String.format(Locale.US, "%+.1f", it) } ?: "—",
-                unit = "°C/мин",
+                unit = stringResource(R.string.card_rate_unit),
                 highlight = false,
                 icon = Icons.Default.Speed
             )
@@ -662,8 +662,8 @@ fun TelemetryCardsGrid(state: LiveSessionState, profile: VehicleProfile) {
             val isIdleHigh = rpmVal > profile.idleMaxRpm && (sample?.coolant ?: 0.0) >= VehicleConstants.WARMED_UP_MIN_COOLANT_C
             StatCard(
                 modifier = Modifier.weight(1f),
-                title = "Двигатель",
-                sub = "ХХ норма ${profile.idleMinRpm.toInt()}..${profile.idleMaxRpm.toInt()}",
+                title = stringResource(R.string.card_engine_title),
+                sub = stringResource(R.string.card_engine_sub, profile.idleMinRpm.toInt(), profile.idleMaxRpm.toInt()),
                 value = sample?.rpm?.let { String.format(Locale.US, "%.0f", it) } ?: "—",
                 unit = "rpm",
                 highlight = isIdleHigh,
@@ -673,7 +673,7 @@ fun TelemetryCardsGrid(state: LiveSessionState, profile: VehicleProfile) {
             // Oil Temp
             StatCard(
                 modifier = Modifier.weight(1f),
-                title = "Масло ДВС",
+                title = stringResource(R.string.card_oil_title),
                 sub = "oil_temp",
                 value = sample?.oilTemp?.let { String.format(Locale.US, "%.1f", it) } ?: "—",
                 unit = "°C",
@@ -685,14 +685,14 @@ fun TelemetryCardsGrid(state: LiveSessionState, profile: VehicleProfile) {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             // Fuel Loop
             val loopLabel = when (sample?.fuelStatus?.toInt()) {
-                1 -> "OPEN · прогрев"
+                1 -> stringResource(R.string.card_loop_open_warm)
                 2 -> "CLOSED"
-                4 -> "OPEN · нагрузка"
+                4 -> stringResource(R.string.card_loop_open_load)
                 else -> "—"
             }
             StatCard(
                 modifier = Modifier.weight(1f),
-                title = "Петля смеси",
+                title = stringResource(R.string.card_loop_title),
                 sub = "fuel_status",
                 value = loopLabel,
                 unit = "",
@@ -703,7 +703,7 @@ fun TelemetryCardsGrid(state: LiveSessionState, profile: VehicleProfile) {
             // Catalyst
             StatCard(
                 modifier = Modifier.weight(1f),
-                title = "Катализатор",
+                title = stringResource(R.string.card_catalyst_title),
                 sub = "light-off ~350 °C",
                 value = sample?.catalyst?.let { String.format(Locale.US, "%.0f", it) } ?: "—",
                 unit = "°C",
@@ -719,7 +719,7 @@ fun TelemetryCardsGrid(state: LiveSessionState, profile: VehicleProfile) {
             val ltftWarn = (sample?.ltft ?: 0.0) > VehicleConstants.TRIM_NORMAL_LIMIT_PCT || (sample?.ltft ?: 0.0) < -VehicleConstants.TRIM_NORMAL_LIMIT_PCT
             StatCard(
                 modifier = Modifier.weight(1f),
-                title = "Коррекции",
+                title = stringResource(R.string.card_trims_title),
                 sub = "STFT / LTFT",
                 value = "$stftStr / $ltftStr",
                 unit = "%",
@@ -730,8 +730,8 @@ fun TelemetryCardsGrid(state: LiveSessionState, profile: VehicleProfile) {
             // Voltage
             StatCard(
                 modifier = Modifier.weight(1f),
-                title = "Бортсеть",
-                sub = "генератор",
+                title = stringResource(R.string.card_voltage_title),
+                sub = stringResource(R.string.card_voltage_sub),
                 value = sample?.voltage?.let { String.format(Locale.US, "%.2f", it) } ?: "—",
                 unit = "V",
                 highlight = false,
@@ -963,9 +963,9 @@ fun SessionsHistoryTab(
                             fontFamily = FontFamily.Monospace
                         )
                         val coolantStr = session.startCoolantC?.let { String.format(Locale.US, "%.1f°C", it) } ?: "—"
-                        val warmStr = session.warmAtS?.let { String.format(Locale.US, " · прогрев %.0fс", it) } ?: ""
+                        val warmStr = session.warmAtS?.let { stringResource(R.string.history_warm_fmt, it) } ?: ""
                         Text(
-                            text = "${session.mode} · старт $coolantStr · ${session.rows} строк$warmStr",
+                            text = stringResource(R.string.history_row_sub_fmt, session.mode, coolantStr, session.rows, warmStr),
                             color = TextSecondary,
                             fontSize = 11.sp
                         )

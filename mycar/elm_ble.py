@@ -1,7 +1,7 @@
 """BLE ELM327 driver (bleak) — the transport iOS OBD-приложение uses on iOS.
 
 Cheap clones have a broken macOS SPP profile but a perfectly healthy BLE
-side (service 0000fff0, characteristic fff1 = write + notify). This class
+side (service 0000fff0, fff1 = notify/write, fff2 = write when present). This class
 wraps bleak with a synchronous, RawELM-compatible interface so capture.py
 works over either transport. The query layer is shared (mycar/elm.py
 ElmBase); only the transport plumbing below is BLE-specific.
