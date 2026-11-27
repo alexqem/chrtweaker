@@ -10,3 +10,8 @@
     <fields>;
 }
 -keep class com.alexqem.chr.core.model.** { *; }
+-keepclassmembers class com.alexqem.chr.core.tweaks.** {
+    @com.google.gson.annotations.SerializedName <fields>;
+    <fields>;
+}
+-keep class com.alexqem.chr.core.tweaks.** { *; }
