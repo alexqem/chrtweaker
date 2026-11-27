@@ -26,6 +26,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.alexqem.chr.core.common.VehicleConstants
+import com.alexqem.chr.core.model.VehicleProfile
+import com.alexqem.chr.core.model.VehicleProfileRegistry
 import com.alexqem.chr.service.LiveSessionState
 import com.alexqem.chr.ui.theme.*
 import java.util.Locale
@@ -48,8 +50,11 @@ fun DashboardScreen(
     val tweakStatus by viewModel.tweakStatus.collectAsState()
     val tweakStates by viewModel.tweakStates.collectAsState()
     val tweakLogs by viewModel.tweakLogs.collectAsState()
+    val selectedProfileId by viewModel.selectedProfileId.collectAsState()
+    val activeProfile by viewModel.activeProfile.collectAsState()
 
     var showDevicePicker by remember { mutableStateOf(false) }
+    var showProfilePicker by remember { mutableStateOf(false) }
     var activeTab by remember { mutableIntStateOf(0) }
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -66,18 +71,23 @@ fun DashboardScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.clickable(enabled = !state.isRunning) { showProfilePicker = true }
+                    ) {
                         Text(
-                            "C-HR NGX10",
+                            activeProfile.shortLabel,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 17.sp,
-                            color = TextPrimary
+                            fontSize = 15.sp,
+                            color = TextPrimary,
+                            maxLines = 1
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            "8NR-FTS 1.2T",
-                            fontSize = 12.sp,
-                            color = TextSecondary
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Icon(
+                            Icons.Default.ArrowDropDown,
+                            contentDescription = "Select vehicle profile",
+                            tint = TextSecondary,
+                            modifier = Modifier.size(18.dp)
                         )
                     }
                 },
@@ -134,7 +144,7 @@ fun DashboardScreen(
             Spacer(modifier = Modifier.height(10.dp))
 
             if (activeTab == 2) {
-                HudTab(state = state)
+                HudTab(state = state, profile = activeProfile)
             } else if (activeTab == 1) {
                 EcuTweaksTab(
                     isVLinker = viewModel.isVLinkerConnected(),
@@ -152,7 +162,7 @@ fun DashboardScreen(
             Spacer(modifier = Modifier.height(14.dp))
 
             // 2-Column Telemetry Grid
-            TelemetryCardsGrid(state)
+            TelemetryCardsGrid(state, activeProfile)
 
             Spacer(modifier = Modifier.height(18.dp))
 
@@ -237,6 +247,62 @@ fun DashboardScreen(
             },
             confirmButton = {
                 TextButton(onClick = { showDevicePicker = false }) { Text("Close") }
+            },
+            containerColor = CardBg
+        )
+    }
+
+    // Profile Picker Dialog
+    if (showProfilePicker) {
+        AlertDialog(
+            onDismissRequest = { showProfilePicker = false },
+            title = { Text("Профиль автомобиля", color = TextPrimary) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    val isAuto = selectedProfileId == VehicleProfileRegistry.AUTO_PROFILE_ID
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(if (isAuto) AccentBlue.copy(alpha = 0.15f) else BgDark)
+                            .clickable {
+                                viewModel.selectProfile(VehicleProfileRegistry.AUTO_PROFILE_ID)
+                                showProfilePicker = false
+                            }
+                            .padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Автоопределение (VIN / CalID)", color = TextPrimary, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                            Text("Определяется по Mode 09 при старте сессии", color = TextSecondary, fontSize = 11.sp)
+                        }
+                        if (isAuto) Icon(Icons.Default.Check, contentDescription = null, tint = AccentBlue)
+                    }
+                    VehicleProfileRegistry.all().forEach { prof ->
+                        val selected = selectedProfileId == prof.id
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (selected) AccentBlue.copy(alpha = 0.15f) else BgDark)
+                                .clickable {
+                                    viewModel.selectProfile(prof.id)
+                                    showProfilePicker = false
+                                }
+                                .padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(prof.shortLabel, color = TextPrimary, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                                Text(prof.label, color = TextSecondary, fontSize = 11.sp)
+                            }
+                            if (selected) Icon(Icons.Default.Check, contentDescription = null, tint = AccentBlue)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showProfilePicker = false }) { Text("Закрыть") }
             },
             containerColor = CardBg
         )
@@ -406,7 +472,7 @@ fun EcuTweaksTab(
 }
 
 @Composable
-fun HudTab(state: LiveSessionState) {
+fun HudTab(state: LiveSessionState, profile: VehicleProfile) {
     val s = state.lastSample
     var isMirrored by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
     val view = androidx.compose.ui.platform.LocalView.current
@@ -432,7 +498,10 @@ fun HudTab(state: LiveSessionState) {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Экран не гаснет, пока открыт HUD", fontSize = 12.sp, color = TextSecondary)
+            Column {
+                Text(profile.shortLabel, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+                Text("Экран не гаснет, пока открыт HUD", fontSize = 11.sp, color = TextSecondary)
+            }
             Button(
                 onClick = { isMirrored = !isMirrored },
                 colors = ButtonDefaults.buttonColors(
@@ -463,7 +532,13 @@ fun HudTab(state: LiveSessionState) {
             }
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 HudGaugeCard("АКБ", fmt(s?.voltage, 2), "V", VoltTeal, Modifier.weight(1f))
-                HudGaugeCard("CVT", fmt(s?.cvtTemp, 1), "°C", CatLime, Modifier.weight(1f))
+                HudGaugeCard(
+                    "CVT",
+                    if (profile.cvtProbe) fmt(s?.cvtTemp, 1) else "N/A",
+                    if (profile.cvtProbe) "°C" else "",
+                    CatLime,
+                    Modifier.weight(1f)
+                )
             }
         }
         Spacer(modifier = Modifier.height(24.dp))
@@ -531,7 +606,7 @@ fun SessionHeaderPills(state: LiveSessionState) {
 }
 
 @Composable
-fun TelemetryCardsGrid(state: LiveSessionState) {
+fun TelemetryCardsGrid(state: LiveSessionState, profile: VehicleProfile) {
     val sample = state.lastSample
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -541,7 +616,7 @@ fun TelemetryCardsGrid(state: LiveSessionState) {
             StatCard(
                 modifier = Modifier.weight(1f),
                 title = "ОЖ (Coolant)",
-                sub = "термостат ${VehicleConstants.THERMOSTAT_OPEN_MIN_C.toInt()}..${VehicleConstants.THERMOSTAT_OPEN_MAX_C.toInt()} °C",
+                sub = "термостат ${profile.thermostatMinC.toInt()}..${profile.thermostatMaxC.toInt()} °C",
                 value = sample?.coolant?.let { String.format(Locale.US, "%.1f", it) } ?: "—",
                 unit = "°C",
                 highlight = isWarm,
@@ -563,11 +638,11 @@ fun TelemetryCardsGrid(state: LiveSessionState) {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             // RPM
             val rpmVal = sample?.rpm ?: 0.0
-            val isIdleHigh = rpmVal > VehicleConstants.IDLE_RPM_MAX && (sample?.coolant ?: 0.0) >= VehicleConstants.WARMED_UP_MIN_COOLANT_C
+            val isIdleHigh = rpmVal > profile.idleMaxRpm && (sample?.coolant ?: 0.0) >= VehicleConstants.WARMED_UP_MIN_COOLANT_C
             StatCard(
                 modifier = Modifier.weight(1f),
                 title = "Двигатель",
-                sub = "ХХ норма ${VehicleConstants.IDLE_RPM_MIN.toInt()}..${VehicleConstants.IDLE_RPM_MAX.toInt()}",
+                sub = "ХХ норма ${profile.idleMinRpm.toInt()}..${profile.idleMaxRpm.toInt()}",
                 value = sample?.rpm?.let { String.format(Locale.US, "%.0f", it) } ?: "—",
                 unit = "rpm",
                 highlight = isIdleHigh,

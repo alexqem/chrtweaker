@@ -51,12 +51,32 @@ object ElmProtocol {
             val r = queryRaw(conn, cmd, timeoutMs = ElmConstants.TIMEOUT_QUICK_MS) ?: continue
             val tokens = ElmParser.tokenize(r)
             val hexJoined = tokens.joinToString(" ")
+            val hexCompact = hexJoined.replace(" ", "")
 
-            if (hexJoined.contains(marker, ignoreCase = true)) {
-                val temp = if (cmd == "01B4") {
-                    val bytes = ElmParser.findPayloadBytes(tokens, "41", "B4", 2)
-                    if (bytes != null) Sensors.decode("cvt_temp", bytes) else null
-                } else null
+            if (hexCompact.contains(marker, ignoreCase = true)) {
+                val temp = when (cmd) {
+                    "01B4" -> ElmParser.findPayloadBytes(tokens, "41", "B4", 2)?.let {
+                        Sensors.decode("cvt_temp", it)
+                    }
+                    "21D9" -> ElmParser.findPayloadBytes(tokens, "61", "D9", 4)?.let {
+                        ((it[2] shl 8) or it[3]) / 256.0 - 40.0
+                    }
+                    "2182" -> ElmParser.findPayloadBytes(tokens, "61", "82", 2)?.let {
+                        Sensors.decode("cvt_temp", it)
+                    }
+                    "221627" -> {
+                        val idx = tokens.indexOfFirst { it.equals("62", ignoreCase = true) }
+                        if (idx != -1 && idx + 4 < tokens.size &&
+                            tokens[idx + 1].equals("16", ignoreCase = true) &&
+                            tokens[idx + 2].equals("27", ignoreCase = true)
+                        ) {
+                            val a = tokens[idx + 3].toIntOrNull(16)
+                            val b = tokens[idx + 4].toIntOrNull(16)
+                            if (a != null && b != null) ((a shl 8) or b) / 256.0 - 40.0 else null
+                        } else null
+                    }
+                    else -> null
+                }
                 return Pair(temp, hexJoined)
             }
         }

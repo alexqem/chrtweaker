@@ -47,7 +47,7 @@ object ElmConstants {
 
     val MODE_09_PIDS = listOf("0902", "0904", "090A")
     val DTC_MODES = listOf("03", "07", "0A")
-    val CVT_CANDIDATES = listOf("01B4" to "41B4", "21D9" to "61D9", "2182" to "6182")
+    val CVT_CANDIDATES = listOf("01B4" to "41B4", "21D9" to "61D9", "2182" to "6182", "221627" to "621627")
 
     const val TIMEOUT_DEFAULT_MS = 3000L
     const val TIMEOUT_INIT_PROBE_MS = 4000L

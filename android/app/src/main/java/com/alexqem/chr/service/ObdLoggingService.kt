@@ -24,6 +24,7 @@ import com.alexqem.chr.core.elm.ElmConnection
 import com.alexqem.chr.core.elm.ElmProtocol
 import com.alexqem.chr.core.model.SensorSample
 import com.alexqem.chr.core.model.SessionMeta
+import com.alexqem.chr.core.model.VehicleProfileRegistry
 import com.alexqem.chr.core.sensors.Sensors
 import com.alexqem.chr.core.sim.SimElmConnection
 import com.alexqem.chr.core.storage.SessionFileManager
@@ -59,7 +60,9 @@ data class LiveSessionState(
     val statusMessage: String = "Idle",
     val error: String? = null,
     val adapterInfo: String? = null,
-    val isVLinkerCapable: Boolean = false
+    val isVLinkerCapable: Boolean = false,
+    val profileId: String = VehicleProfileRegistry.DEFAULT_PROFILE_ID,
+    val detectedProfileId: String? = null
 )
 
 class ObdLoggingService : Service() {
@@ -127,14 +130,18 @@ class ObdLoggingService : Service() {
             .build()
     }
 
-    fun startLogging(deviceAddress: String?, useSimulator: Boolean) {
+    fun startLogging(
+        deviceAddress: String?,
+        useSimulator: Boolean,
+        profileId: String = VehicleProfileRegistry.AUTO_PROFILE_ID
+    ) {
         if (loggingJob?.isActive == true) return
 
         wakeLock?.acquire(60 * 60 * 1000L)
         startForeground(NOTIFICATION_ID, buildNotification("Starting OBD-II session..."))
 
         loggingJob = serviceScope.launch {
-            runCaptureSession(deviceAddress, useSimulator)
+            runCaptureSession(deviceAddress, useSimulator, profileId)
         }
     }
 
@@ -142,7 +149,11 @@ class ObdLoggingService : Service() {
         loggingJob?.cancel()
     }
 
-    private suspend fun runCaptureSession(deviceAddress: String?, useSimulator: Boolean) {
+    private suspend fun runCaptureSession(
+        deviceAddress: String?,
+        useSimulator: Boolean,
+        requestedProfileId: String
+    ) {
         var conn: ElmConnection? = null
         var csvWriter: BufferedWriter? = null
         var metaFile: File? = null
@@ -214,18 +225,25 @@ class ObdLoggingService : Service() {
             }
             val mode = if (initialCoolant != null && initialCoolant <= VehicleConstants.COLD_START_MAX_COOLANT_C) "cold" else "warm"
 
-            // Step 5: Read vehicle identity (Mode 09)
+            // Step 5: Read vehicle identity (Mode 09) and resolve vehicle profile
             val carId = ElmProtocol.readCarId(conn)
+            val detectedProfile = VehicleProfileRegistry.detectFromIdentity(carId.vin, carId.calid)
+            val activeProfile = if (requestedProfileId == VehicleProfileRegistry.AUTO_PROFILE_ID) {
+                detectedProfile ?: VehicleProfileRegistry.byId(VehicleProfileRegistry.DEFAULT_PROFILE_ID)
+            } else {
+                VehicleProfileRegistry.byId(requestedProfileId)
+            }
+            val effectiveMode = if (activeProfile.coldStartAnalysis) mode else "warm"
 
             // Step 6: Create storage files and DB record
-            val files = fileManager.createSessionFiles(mode)
+            val files = fileManager.createSessionFiles(effectiveMode)
             csvFile = files.first
             metaFile = files.second
             csvWriter = fileManager.openCsvWriter(csvFile)
 
             currentMeta = SessionMeta(
                 carId = carId,
-                mode = mode,
+                mode = effectiveMode,
                 sim = useSimulator,
                 startedAt = isoFormat.format(Date()),
                 startCoolantC = initialCoolant
@@ -239,7 +257,7 @@ class ObdLoggingService : Service() {
                     csvFile = csvFile.name,
                     startedAt = currentMeta.startedAt,
                     finishedAt = null,
-                    mode = mode,
+                    mode = effectiveMode,
                     startCoolantC = initialCoolant,
                     warmAtS = null,
                     rows = 0,
@@ -249,14 +267,16 @@ class ObdLoggingService : Service() {
             )
 
             _sessionState.value = _sessionState.value.copy(
-                mode = mode,
-                statusMessage = "Logging ($mode start from ${initialCoolant ?: "—"}°C)"
+                mode = effectiveMode,
+                profileId = activeProfile.id,
+                detectedProfileId = detectedProfile?.id,
+                statusMessage = "Logging (${activeProfile.shortLabel} · $effectiveMode from ${initialCoolant ?: "—"}°C)"
             )
 
             // Step 7: Sampling loop
             var sessionTs = 0.0
             var cvtAttempts = 0
-            var cvtSupported = true
+            var cvtSupported = activeProfile.cvtProbe
             var cooldownAfterWarmStartTs: Double? = null
 
             while (serviceScope.isActive) {

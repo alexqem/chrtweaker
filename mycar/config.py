@@ -4,10 +4,12 @@ Machine-specific secrets (the dongle's BLE address) live in .env — see
 .env.example. Never commit .env.
 """
 
+import json
 import os
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+ASSETS_DIR = PROJECT_ROOT / "android" / "app" / "src" / "main" / "assets"
 LOGS_DIR = PROJECT_ROOT / "logs"
 STATS_DIR = PROJECT_ROOT / "stats"
 DOCS_DIR = PROJECT_ROOT / "docs"
@@ -54,43 +56,33 @@ CAR = {
 #   * ECU tweaks — verified on NGX10 only (docs/ECU_TWEAKS.md).
 # Select: MYCAR_PROFILE in .env, `capture --profile NAME`, or analyze/db pick
 # the profile up from the session's meta.json.
-PROFILES = {
-    "8nrfts": {
-        "label": "Toyota C-HR NGX10 · 1.2T 8NR-FTS · K114 CVT",
-        "short": "Toyota C-HR NGX10 · 1.2T 8NR-FTS",
-        "verified": True,          # all norms below verified on this car
-        "cvt_probe": True,
-        "cold_start_analysis": True,
-        "norms": {},               # base NORMS are the 8NR-FTS values
-    },
-    "2zrfe": {
-        "label": "Toyota 1.8 NA 2ZR-FE (Corolla / Auris, CVT/MT)",
-        "short": "Toyota · 1.8 2ZR-FE (Corolla / Auris)",
-        "verified": False,         # norms are Toyota-manual grade, not road-verified
-        "cvt_probe": True,         # K313 CVT answers the same 21D9/2182 family
-        "cold_start_analysis": True,
-        "norms": {
-            "idle_rpm_cvt": (620, 720),    # 2ZR-FE warm idle sits below the 1.2T
-            "thermostat_open_c": (80, 86), # Toyota common 82-86 °C
-        },
-    },
-    "2zrfxe": {
-        "label": "Toyota 1.8 Hybrid 2ZR-FXE (C-HR NGX50 / Corolla Hybrid / Prius)",
-        "short": "Toyota · 1.8 Hybrid 2ZR-FXE",
-        "verified": False,
-        "cvt_probe": True,
-        "cold_start_analysis": False,      # engine auto-stop breaks cold-start logic
-        "norms": {},
-    },
-    "generic": {
-        "label": "Any OBD-II gasoline car — standard Mode-01 telemetry only",
-        "short": "OBD-II · generic gasoline",
-        "verified": False,
-        "cvt_probe": False,                # Toyota 21xx probe makes no sense here
-        "cold_start_analysis": True,
-        "norms": {},
-    },
-}
+def _load_profiles_and_norms() -> tuple[dict, dict]:
+    """Load vehicle profiles and base norms from shared Android assets JSON."""
+    raw = json.loads((ASSETS_DIR / "profiles.json").read_text(encoding="utf-8"))
+    base_norms = {
+        k: (tuple(v) if isinstance(v, list) else v)
+        for k, v in raw["base_norms"].items()
+    }
+    profiles = {}
+    for p in raw["profiles"]:
+        pid = p["id"]
+        profiles[pid] = {
+            "label": p["label"],
+            "short": p["short"],
+            "verified": bool(p.get("verified", False)),
+            "cvt_probe": bool(p.get("cvt_probe", True)),
+            "cold_start_analysis": bool(p.get("cold_start_analysis", True)),
+            "vin_prefixes": list(p.get("vin_prefixes", [])),
+            "calid_prefixes": list(p.get("calid_prefixes", [])),
+            "norms": {
+                k: (tuple(v) if isinstance(v, list) else v)
+                for k, v in p.get("norms", {}).items()
+            },
+        }
+    return profiles, base_norms
+
+
+PROFILES, NORMS = _load_profiles_and_norms()
 PROFILE_NAME = (os.environ.get("MYCAR_PROFILE") or "8nrfts").strip().lower()
 PROFILE = PROFILES.get(PROFILE_NAME)
 if PROFILE is None:
@@ -113,24 +105,7 @@ MAX_RECONNECTS = 20          # link drop reconnects before aborting the session
 # --- Dashboard ---
 DASHBOARD_PORT = 8600
 
-# --- Reference norms (from mycar/docs/03, 05) — used by analyze ---
-NORMS = {
-    "idle_rpm_cvt": (680, 780),        # warm idle, P/N, A/C off (Toyota SSM)
-    "warm_coolant_c": (75, 100),       # normal operating window
-    "thermostat_open_c": (80, 84),     # main thermostat, closed below 77
-    "stft_ltft_normal_pct": (-10, 10), # healthy combined trim guideline
-    "toyota_trim_dtc_lean_pct": 48,    # P017100 threshold (Toyota)
-    "toyota_trim_dtc_rich_pct": -35,   # P017200 threshold (Toyota)
-    "maf_at_3000rpm_gs": (4.0, 14.0),  # ECT>=75C, P/N, A/C off (Toyota SSM)
-    "fuel_pressure_idle_kpa": (4000, 18000),   # rail_p (PID 23) is kPa in sensors/CSV
-    "fuel_pressure_3000_kpa": (8000, 18000),
-    "battery_v_idle": (13.2, 14.8),    # charging system at warm idle; 9.x V is a
-                                       # cranking-drop floor, not an idle norm
-    "battery_v_cranking_min": 9.6,     # min during starter cranking (Toyota)
-    "cold_start_max_c": COLD_COOLANT_MAX_C,
-    "warm_target_c": WARM_COOLANT_MIN_C,
-}
-
+# --- Reference norms (loaded from profiles.json, overridden per profile) ---
 _BASE_NORMS = dict(NORMS)
 
 

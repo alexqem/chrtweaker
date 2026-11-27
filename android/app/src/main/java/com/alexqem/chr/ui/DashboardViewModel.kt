@@ -13,6 +13,8 @@ import com.alexqem.chr.ChrApp
 import com.alexqem.chr.core.ble.BleScanner
 import com.alexqem.chr.core.ble.DiscoveredBleDevice
 import com.alexqem.chr.core.database.LtftTrendCalculator
+import com.alexqem.chr.core.model.VehicleProfile
+import com.alexqem.chr.core.model.VehicleProfileRegistry
 import com.alexqem.chr.core.storage.SessionFileManager
 import com.alexqem.chr.service.LiveSessionState
 import com.alexqem.chr.service.ObdLoggingService
@@ -70,6 +72,17 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     private val _tweakLogs = MutableStateFlow<List<String>>(emptyList())
     val tweakLogs: StateFlow<List<String>> = _tweakLogs.asStateFlow()
 
+    private val _selectedProfileId = MutableStateFlow(
+        prefs.getString("vehicle_profile_id", VehicleProfileRegistry.AUTO_PROFILE_ID)
+            ?: VehicleProfileRegistry.AUTO_PROFILE_ID
+    )
+    val selectedProfileId: StateFlow<String> = _selectedProfileId.asStateFlow()
+
+    private val _activeProfile = MutableStateFlow(
+        resolveActiveProfile(_selectedProfileId.value, null)
+    )
+    val activeProfile: StateFlow<VehicleProfile> = _activeProfile.asStateFlow()
+
     private val serviceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
             val binder = service as ObdLoggingService.LocalBinder
@@ -80,6 +93,9 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             viewModelScope.launch {
                 s.sessionState.collect {
                     _sessionState.value = it
+                    if (it.isRunning) {
+                        _activeProfile.value = resolveActiveProfile(_selectedProfileId.value, it.detectedProfileId)
+                    }
                     val sample = it.lastSample
                     if (sample != null) {
                         val current = _sampleHistory.value
@@ -115,6 +131,20 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun setUseSimulator(value: Boolean) {
         _useSimulator.value = value
+    }
+
+    fun selectProfile(profileId: String) {
+        _selectedProfileId.value = profileId
+        prefs.edit().putString("vehicle_profile_id", profileId).apply()
+        _activeProfile.value = resolveActiveProfile(profileId, _sessionState.value.detectedProfileId)
+    }
+
+    internal fun resolveActiveProfile(selectedId: String, detectedId: String?): VehicleProfile {
+        return if (selectedId == VehicleProfileRegistry.AUTO_PROFILE_ID) {
+            VehicleProfileRegistry.byId(detectedId ?: VehicleProfileRegistry.DEFAULT_PROFILE_ID)
+        } else {
+            VehicleProfileRegistry.byId(selectedId)
+        }
     }
 
     fun selectDevice(device: DiscoveredBleDevice) {
@@ -157,7 +187,8 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
         loggingServiceRef?.get()?.startLogging(
             deviceAddress = _selectedDevice.value?.address,
-            useSimulator = _useSimulator.value
+            useSimulator = _useSimulator.value,
+            profileId = _selectedProfileId.value
         )
     }
 

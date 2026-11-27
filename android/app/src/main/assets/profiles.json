@@ -1,0 +1,80 @@
+{
+  "base_norms": {
+    "idle_rpm_cvt": [680, 780],
+    "warm_coolant_c": [75, 100],
+    "thermostat_open_c": [80, 84],
+    "stft_ltft_normal_pct": [-10, 10],
+    "toyota_trim_dtc_lean_pct": 48,
+    "toyota_trim_dtc_rich_pct": -35,
+    "maf_at_3000rpm_gs": [4.0, 14.0],
+    "fuel_pressure_idle_kpa": [4000, 18000],
+    "fuel_pressure_3000_kpa": [8000, 18000],
+    "battery_v_idle": [13.2, 14.8],
+    "battery_v_cranking_min": 9.6,
+    "cold_start_max_c": 40.0,
+    "warm_target_c": 80.0
+  },
+  "profiles": [
+    {
+      "id": "8nrfts",
+      "label": "Toyota C-HR NGX10/NGX50 · 1.2T 8NR-FTS · K114 CVT",
+      "short": "C-HR NGX10 · 8NR-FTS 1.2T",
+      "verified": true,
+      "cvt_probe": true,
+      "cold_start_analysis": true,
+      "vin_prefixes": ["NGX10", "NGX50", "JTDKB"],
+      "calid_prefixes": ["8966310", "89663F4"],
+      "norms": {}
+    },
+    {
+      "id": "2zrfe",
+      "label": "Toyota 1.8 NA 2ZR-FE (Corolla / Auris, CVT/MT)",
+      "short": "Toyota · 1.8 2ZR-FE",
+      "verified": false,
+      "cvt_probe": true,
+      "cold_start_analysis": true,
+      "vin_prefixes": ["ZRE15", "ZRE17", "ZRE18", "ZRE21"],
+      "calid_prefixes": ["8966302", "8966312"],
+      "norms": {
+        "idle_rpm_cvt": [620, 720],
+        "thermostat_open_c": [80, 86]
+      }
+    },
+    {
+      "id": "2zrfxe",
+      "label": "Toyota 1.8 Hybrid 2ZR-FXE (C-HR ZYX10 / Corolla Hybrid / Prius)",
+      "short": "Toyota · 1.8 Hybrid 2ZR-FXE",
+      "verified": false,
+      "cvt_probe": true,
+      "cold_start_analysis": false,
+      "vin_prefixes": ["ZYX10", "ZYX11", "ZVW30", "ZVW50", "ZWE21"],
+      "calid_prefixes": ["8966347"],
+      "norms": {}
+    },
+    {
+      "id": "tnga_20",
+      "label": "Toyota 2.0 Dynamic Force M20A-FKS/FXS (TNGA 2018+)",
+      "short": "Toyota · 2.0 M20A TNGA",
+      "verified": false,
+      "cvt_probe": true,
+      "cold_start_analysis": true,
+      "vin_prefixes": ["MXAA", "MXGA", "AXAA", "AXAH", "MZEA", "MAXA"],
+      "calid_prefixes": ["8966306", "8966342"],
+      "norms": {
+        "idle_rpm_cvt": [600, 750],
+        "thermostat_open_c": [82, 88]
+      }
+    },
+    {
+      "id": "generic",
+      "label": "Any OBD-II gasoline car — standard Mode-01 telemetry only",
+      "short": "OBD-II · Generic",
+      "verified": false,
+      "cvt_probe": false,
+      "cold_start_analysis": true,
+      "vin_prefixes": [],
+      "calid_prefixes": [],
+      "norms": {}
+    }
+  ]
+}
