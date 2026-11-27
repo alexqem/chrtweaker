@@ -78,6 +78,10 @@ def make_app(state: State) -> FastAPI:
     def get_tweaks():
         return JSONResponse({"tweaks": tweaks.list_tweaks()})
 
+    @app.get("/api/tweaks/states")
+    def get_tweak_states():
+        return JSONResponse(tweaks.read_all_switches(elm_send_fn=state.elm_send_fn))
+
     @app.post("/api/tweak")
     def post_tweak(payload: dict = Body(...)):
         tweak_id = str(payload.get("id", ""))

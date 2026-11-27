@@ -40,6 +40,22 @@ class ProfilesAndTweaksTest(unittest.TestCase):
         self.assertEqual(val, 65.0)
         self.assertTrue(cands)
 
+    def test_read_all_switches_states_and_unsupported(self) -> None:
+        def fake_send(cmd: str) -> str:
+            if cmd.startswith("ATSH"):
+                return "OK"
+            if cmd == "21A7":
+                return "61 A7 01"
+            if cmd == "21AC":
+                return "7F 21 12"
+            return f"61 {cmd[2:]} 00"
+
+        res = tweaks.read_all_switches(elm_send_fn=fake_send)
+        self.assertTrue(res["states"]["auto_fold_mirrors"])
+        self.assertTrue(res["supported"]["auto_fold_mirrors"])
+        self.assertFalse(res["supported"]["reverse_beep_cluster"])
+        self.assertFalse(res["states"]["blink_hazards_lock"])
+
 
 if __name__ == "__main__":
     unittest.main()

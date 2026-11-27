@@ -63,6 +63,65 @@ def list_tweaks() -> list[dict]:
     return [asdict(t) for t in TWEAKS]
 
 
+def _parse_read_byte(read_cmd: str, raw_reply: str) -> Optional[str]:
+    upper = raw_reply.upper()
+    if any(m in upper for m in ("7F", "ERROR", "NO DATA", "UNABLE", "STOPPED", "?")):
+        return None
+    if len(read_cmd) < 4:
+        return None
+    svc = f"{int(read_cmd[:2], 16) + 0x40:02X}"
+    pid = read_cmd[2:4].upper()
+    tokens = raw_reply.replace("\r", " ").replace("\n", " ").split()
+    tokens = [t.upper() for t in tokens]
+    for i, tok in enumerate(tokens):
+        if tok == svc and i + 2 < len(tokens) and tokens[i + 1] == pid:
+            try:
+                return f"{int(tokens[i + 2], 16):02X}"
+            except ValueError:
+                pass
+        if tok == f"{svc}{pid}" and i + 1 < len(tokens):
+            try:
+                return f"{int(tokens[i + 1], 16):02X}"
+            except ValueError:
+                pass
+    return None
+
+
+def read_all_switches(elm_send_fn: Optional[Callable[[str], str]] = None) -> dict:
+    """Read current ON/OFF state and ECU support for all switch tweaks."""
+    states: dict[str, bool] = {}
+    supported: dict[str, bool] = {}
+    logs: list[str] = []
+    ts = datetime.now().strftime("%H:%M:%S")
+    switches = [t for t in TWEAKS if t.kind == "switch" and t.read_cmd]
+    if elm_send_fn is None:
+        return {"states": states, "supported": supported, "logs": [f"[{ts}] OFFLINE | no ELM connection"]}
+
+    current_hdr = None
+    try:
+        for spec in switches:
+            hdr = spec.ecu.replace("0x", "")
+            if current_hdr != hdr:
+                elm_send_fn(f"ATSH {hdr}")
+                current_hdr = hdr
+            raw = (elm_send_fn(spec.read_cmd) or "").strip()
+            byte_hex = _parse_read_byte(spec.read_cmd, raw)
+            if byte_hex is not None:
+                is_on = byte_hex == spec.write_on_cmd[-2:].upper()
+                supported[spec.id] = True
+                states[spec.id] = is_on
+                logs.append(f"[{ts}] READ | {spec.id} | {spec.read_cmd} -> {byte_hex} ({'ON' if is_on else 'OFF'})")
+            else:
+                supported[spec.id] = False
+                logs.append(f"[{ts}] UNSUPPORTED | {spec.id} | {spec.read_cmd} -> {raw}")
+    finally:
+        try:
+            elm_send_fn("ATSH 7DF")
+        except Exception:
+            pass
+    return {"states": states, "supported": supported, "logs": logs}
+
+
 def execute_tweak(
     tweak_id: str,
     enabled: bool = True,

@@ -133,6 +133,69 @@ object EcuTweaks {
             ElmParser.isNegative(raw)
     }
 
+    data class SwitchProbeResult(
+        val states: Map<String, Boolean>,
+        val supported: Map<String, Boolean>,
+        val logs: List<String>
+    )
+
+    suspend fun readAllSwitches(
+        specs: List<TweakSpec> = ALL,
+        isVLinker: Boolean,
+        isSim: Boolean,
+        sendFn: (suspend (String) -> String)? = null
+    ): SwitchProbeResult {
+        val states = linkedMapOf<String, Boolean>()
+        val supported = linkedMapOf<String, Boolean>()
+        val logs = mutableListOf<String>()
+        val ts = SimpleDateFormat("HH:mm:ss", Locale.US).format(Date())
+
+        val switchSpecs = specs.filter { it.isSwitch && !it.readCmd.isNullOrBlank() }
+        if (isSim || sendFn == null) {
+            for (spec in switchSpecs) {
+                supported[spec.id] = true
+                states[spec.id] = spec.id == "auto_fold_mirrors" || spec.id == "eco_indicator"
+            }
+            logs.add("[$ts] ${if (isSim) "SIM" else "OFFLINE"} | READ_ALL switches=${switchSpecs.size}")
+            return SwitchProbeResult(states, supported, logs)
+        }
+
+        if (!isVLinker) {
+            for (spec in switchSpecs) {
+                if (spec.requiresVLinker) supported[spec.id] = false
+            }
+            logs.add("[$ts] SKIP | READ_ALL switches (requires vLinker)")
+            return SwitchProbeResult(states, supported, logs)
+        }
+
+        var currentHeader: String? = null
+        try {
+            for (spec in switchSpecs) {
+                val rCmd = spec.readCmd ?: continue
+                val ecuAddr = spec.ecu.removePrefix("0x")
+                if (currentHeader != ecuAddr) {
+                    sendFn("ATSH $ecuAddr")
+                    currentHeader = ecuAddr
+                }
+                val raw = runCatching { sendFn(rCmd).trim() }.getOrDefault("")
+                val byteHex = parseReadByte(rCmd, raw)
+                if (byteHex != null) {
+                    val onByte = spec.writeOnCmd.takeLast(2).uppercase(Locale.US)
+                    val isOn = byteHex == onByte
+                    supported[spec.id] = true
+                    states[spec.id] = isOn
+                    logs.add("[$ts] READ | ${spec.id} | $rCmd -> $byteHex (${if (isOn) "ON" else "OFF"})")
+                } else {
+                    supported[spec.id] = false
+                    logs.add("[$ts] UNSUPPORTED | ${spec.id} | $rCmd -> $raw")
+                }
+            }
+        } finally {
+            runCatching { sendFn("ATSH 7DF") }
+        }
+        return SwitchProbeResult(states, supported, logs)
+    }
+
     suspend fun execute(
         spec: TweakSpec,
         enabled: Boolean,

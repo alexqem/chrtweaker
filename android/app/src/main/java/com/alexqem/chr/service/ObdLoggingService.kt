@@ -63,7 +63,8 @@ data class LiveSessionState(
     val isVLinkerCapable: Boolean = false,
     val profileId: String = VehicleProfileRegistry.DEFAULT_PROFILE_ID,
     val detectedProfileId: String? = null,
-    val capabilityLog: List<String> = emptyList()
+    val capabilityLog: List<String> = emptyList(),
+    val misfireStats: ElmProtocol.MisfireStats? = null
 )
 
 class ObdLoggingService : Service() {
@@ -279,11 +280,16 @@ class ObdLoggingService : Service() {
                 )
             )
 
+            val misfires = if (capProbe.supported.containsKey("700:2210A5")) {
+                ElmProtocol.readMisfireStats(conn)
+            } else null
+
             _sessionState.value = _sessionState.value.copy(
                 mode = effectiveMode,
                 profileId = activeProfile.id,
                 detectedProfileId = detectedProfile?.id,
                 capabilityLog = capProbe.logs,
+                misfireStats = misfires,
                 statusMessage = "Logging (${activeProfile.shortLabel} · $effectiveMode from ${initialCoolant ?: "—"}°C)"
             )
 

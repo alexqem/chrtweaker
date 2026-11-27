@@ -54,6 +54,7 @@ fun DashboardScreen(
     val sampleHistory by viewModel.sampleHistory.collectAsState()
     val tweakStatus by viewModel.tweakStatus.collectAsState()
     val tweakStates by viewModel.tweakStates.collectAsState()
+    val tweakSupported by viewModel.tweakSupported.collectAsState()
     val tweakLogs by viewModel.tweakLogs.collectAsState()
     val selectedProfileId by viewModel.selectedProfileId.collectAsState()
     val activeProfile by viewModel.activeProfile.collectAsState()
@@ -63,6 +64,7 @@ fun DashboardScreen(
 
     var showDevicePicker by remember { mutableStateOf(false) }
     var showProfilePicker by remember { mutableStateOf(false) }
+    var showMisfireDialog by remember { mutableStateOf(false) }
     var activeTab by remember { mutableIntStateOf(0) }
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -172,7 +174,9 @@ fun DashboardScreen(
                     isSim = useSimulator,
                     tweakStatus = tweakStatus,
                     tweakStates = tweakStates,
+                    tweakSupported = tweakSupported,
                     tweakLogs = tweakLogs,
+                    onRefreshTweaks = { viewModel.refreshTweakStates() },
                     onRunTweak = { spec, enabled -> viewModel.runTweak(spec, enabled) },
                     onDismissStatus = { viewModel.clearTweakStatus() }
                 )
@@ -184,6 +188,34 @@ fun DashboardScreen(
 
             // 2-Column Telemetry Grid
             TelemetryCardsGrid(state, activeProfile, sampleHistory)
+
+            val misfires = state.misfireStats
+            if (misfires != null) {
+                Spacer(modifier = Modifier.height(10.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(CardBg)
+                        .border(1.dp, if (misfires.totalAllCylinders > 0) WarnAmber else BorderLine, RoundedCornerShape(10.dp))
+                        .clickable { showMisfireDialog = true }
+                        .padding(12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(stringResource(R.string.misfire_card_title), color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        Text(stringResource(R.string.misfire_card_sub), color = TextSecondary, fontSize = 11.sp)
+                    }
+                    Text(
+                        text = misfires.totalAllCylinders.toString(),
+                        color = if (misfires.totalAllCylinders > 0) WarnAmber else OkGreen,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
+            }
 
             if (state.capabilityLog.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(10.dp))
@@ -350,6 +382,45 @@ fun DashboardScreen(
         )
     }
 
+    // Misfire Counter Dialog
+    val misfiresForDialog = state.misfireStats
+    if (showMisfireDialog && misfiresForDialog != null) {
+        AlertDialog(
+            onDismissRequest = { showMisfireDialog = false },
+            title = { Text(stringResource(R.string.misfire_dialog_title), color = TextPrimary) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        stringResource(R.string.misfire_total, misfiresForDialog.totalAllCylinders),
+                        color = TextPrimary,
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 13.sp
+                    )
+                    misfiresForDialog.cyl1?.let {
+                        Text(
+                            stringResource(R.string.misfire_cyl1, it),
+                            color = TextSecondary,
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 13.sp
+                        )
+                    }
+                    misfiresForDialog.underLoad?.let {
+                        Text(
+                            stringResource(R.string.misfire_load, it),
+                            color = TextSecondary,
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 13.sp
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showMisfireDialog = false }) { Text(stringResource(R.string.btn_close)) }
+            },
+            containerColor = CardBg
+        )
+    }
+
     // LTFT Trend Dialog
     if (trendReport != null) {
         AlertDialog(
@@ -378,7 +449,9 @@ fun EcuTweaksTab(
     isSim: Boolean,
     tweakStatus: TweakUiState?,
     tweakStates: Map<String, Boolean>,
+    tweakSupported: Map<String, Boolean>,
     tweakLogs: List<String>,
+    onRefreshTweaks: () -> Unit,
     onRunTweak: (com.alexqem.chr.core.tweaks.TweakSpec, Boolean) -> Unit,
     onDismissStatus: () -> Unit
 ) {
@@ -395,6 +468,7 @@ fun EcuTweaksTab(
                 .background(if (fullAccess) OkGreen.copy(alpha = 0.12f) else WarnAmber.copy(alpha = 0.12f))
                 .border(1.dp, if (fullAccess) OkGreen else WarnAmber, RoundedCornerShape(8.dp))
                 .padding(10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
@@ -404,8 +478,14 @@ fun EcuTweaksTab(
                     stringResource(R.string.tweaks_limited)
                 },
                 fontSize = 12.sp,
-                color = if (fullAccess) OkGreen else WarnAmber
+                color = if (fullAccess) OkGreen else WarnAmber,
+                modifier = Modifier.weight(1f)
             )
+            if (fullAccess) {
+                TextButton(onClick = onRefreshTweaks, enabled = !isPending) {
+                    Text(stringResource(R.string.tweak_refresh), fontSize = 11.sp, color = CoolantBlue)
+                }
+            }
         }
 
         // Command execution status banner
@@ -443,30 +523,36 @@ fun EcuTweaksTab(
 
         visibleTweaks.forEach { spec ->
             val checked = tweakStates[spec.id] ?: false
+            val isSupported = tweakSupported[spec.id] ?: true
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(10.dp))
                     .background(CardBg)
                     .border(1.dp, BorderLine, RoundedCornerShape(10.dp))
+                    .graphicsLayer { alpha = if (isSupported) 1f else 0.45f }
                     .padding(12.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
                     Text(spec.title, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
-                    Text(spec.description, fontSize = 12.sp, color = TextSecondary)
+                    Text(
+                        if (isSupported) spec.description else stringResource(R.string.tweak_unsupported),
+                        fontSize = 12.sp,
+                        color = TextSecondary
+                    )
                     Text("${spec.ecu} · ${spec.protocol}", fontSize = 10.sp, fontFamily = FontFamily.Monospace, color = ChartTick)
                 }
                 if (spec.isSwitch) {
                     Switch(
                         checked = checked,
-                        enabled = !isPending,
+                        enabled = !isPending && isSupported,
                         onCheckedChange = { onRunTweak(spec, it) }
                     )
                 } else {
                     Button(
-                        enabled = !isPending,
+                        enabled = !isPending && isSupported,
                         onClick = { onRunTweak(spec, true) },
                         colors = ButtonDefaults.buttonColors(containerColor = CardBgElevated, contentColor = TextPrimary),
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)

@@ -148,6 +148,40 @@ object ElmProtocol {
         return CapabilityProbeResult(supported, logs)
     }
 
+    data class MisfireStats(
+        val totalAllCylinders: Int,
+        val cyl1: Int? = null,
+        val underLoad: Int? = null
+    )
+
+    suspend fun readMisfireStats(conn: ElmConnection): MisfireStats? {
+        fun parseU16(raw: String?, pidHi: String, pidLo: String): Int? {
+            if (raw.isNullOrBlank()) return null
+            val tokens = ElmParser.tokenize(raw)
+            val idx = tokens.indexOfFirst { it.equals("62", ignoreCase = true) }
+            if (idx == -1 || idx + 4 >= tokens.size) return null
+            if (!tokens[idx + 1].equals(pidHi, ignoreCase = true) ||
+                !tokens[idx + 2].equals(pidLo, ignoreCase = true)
+            ) return null
+            val a = tokens[idx + 3].toIntOrNull(16) ?: return null
+            val b = tokens[idx + 4].toIntOrNull(16) ?: return null
+            return (a shl 8) or b
+        }
+
+        return try {
+            conn.send("ATSH 700", timeoutMs = ElmConstants.TIMEOUT_QUICK_MS)
+            val allRaw = queryRaw(conn, "2210A5", timeoutMs = ElmConstants.TIMEOUT_QUICK_MS)
+            val allVal = parseU16(allRaw, "10", "A5") ?: return null
+            val c1Val = parseU16(queryRaw(conn, "2210A7", timeoutMs = ElmConstants.TIMEOUT_QUICK_MS), "10", "A7")
+            val loadVal = parseU16(queryRaw(conn, "2210AA", timeoutMs = ElmConstants.TIMEOUT_QUICK_MS), "10", "AA")
+            MisfireStats(totalAllCylinders = allVal, cyl1 = c1Val, underLoad = loadVal)
+        } catch (_: Exception) {
+            null
+        } finally {
+            runCatching { conn.send("ATSH 7DF", timeoutMs = ElmConstants.TIMEOUT_QUICK_MS) }
+        }
+    }
+
     suspend fun readCarId(conn: ElmConnection): CarIdentity {
         try {
             conn.send(ElmConstants.CMD_HEADERS_ON, settleWaitMs = ElmConstants.DELAY_HEADER_SETTLE_MS)

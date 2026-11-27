@@ -741,17 +741,24 @@ function showTweakBanner(kind, text) {
 async function loadTweaks() {
   window._tweaksLoaded = true;
   try {
-    const res = await fetch('/api/tweaks');
+    const [res, stateRes] = await Promise.all([fetch('/api/tweaks'), fetch('/api/tweaks/states')]);
     const data = await res.json();
+    const stateData = await stateRes.json();
+    const states = stateData.states || {};
+    const supported = stateData.supported || {};
     const grid = document.getElementById('tweak-grid');
     grid.innerHTML = '';
     for (const t of data.tweaks || []) {
+      const isSup = supported[t.id] !== false;
+      const isChecked = !!states[t.id];
       const card = document.createElement('div');
       card.className = 'tweak-card';
-      const info = `<div><div class="tweak-title">${t.title}</div><div class="tweak-desc">${t.description}</div><div class="tweak-meta">${t.ecu} · ${t.protocol}</div></div>`;
+      if (!isSup) card.style.opacity = '0.45';
+      const desc = isSup ? t.description : 'Не поддерживается на этом авто';
+      const info = `<div><div class="tweak-title">${t.title}</div><div class="tweak-desc">${desc}</div><div class="tweak-meta">${t.ecu} · ${t.protocol}</div></div>`;
       const ctrl = t.kind === 'switch'
-        ? `<label class="switch"><input type="checkbox" onchange="runTweak('${t.id}', this.checked)"><span class="slider"></span></label>`
-        : `<button class="tweak-btn" onclick="runTweak('${t.id}', true)">Execute</button>`;
+        ? `<label class="switch"><input type="checkbox" ${isChecked ? 'checked' : ''} ${isSup ? '' : 'disabled'} onchange="runTweak('${t.id}', this.checked)"><span class="slider"></span></label>`
+        : `<button class="tweak-btn" ${isSup ? '' : 'disabled'} onclick="runTweak('${t.id}', true)">Execute</button>`;
       card.innerHTML = info + ctrl;
       grid.appendChild(card);
     }

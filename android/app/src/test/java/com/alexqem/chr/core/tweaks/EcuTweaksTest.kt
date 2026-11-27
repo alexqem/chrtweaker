@@ -107,4 +107,20 @@ class EcuTweaksTest {
         assertEquals(TweakError.WRITE_FAILED, res.error)
         assertEquals("STOPPED", res.rawDetail)
     }
+
+    @Test
+    fun readAllSwitches_readsOnOffAndMarksUnsupported() = runBlocking {
+        val probe = EcuTweaks.readAllSwitches(isVLinker = true, isSim = false) { cmd ->
+            when {
+                cmd.startsWith("ATSH") -> "OK"
+                cmd == "21A7" -> "61 A7 01"
+                cmd == "21AC" -> "7F 21 12"
+                else -> "61 ${cmd.drop(2)} 00"
+            }
+        }
+        assertEquals(true, probe.states["auto_fold_mirrors"])
+        assertEquals(true, probe.supported["auto_fold_mirrors"])
+        assertEquals(false, probe.supported["reverse_beep_cluster"])
+        assertEquals(false, probe.states["blink_hazards_lock"])
+    }
 }

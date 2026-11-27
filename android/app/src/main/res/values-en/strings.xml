@@ -64,4 +64,12 @@
     <string name="tweak_err_no_ecu">No response from ECU</string>
     <string name="tweak_err_failed_fmt">%1$s: error (%2$s)</string>
     <string name="tweak_err_verify_fmt">%1$s: not applied (was %2$s → still %3$s, expected %4$s)</string>
+    <string name="tweak_unsupported">Not supported on this vehicle</string>
+    <string name="tweak_refresh">Refresh states</string>
+    <string name="misfire_card_title">Misfires</string>
+    <string name="misfire_card_sub">ECM 0x700 · tap for details</string>
+    <string name="misfire_dialog_title">Misfire Counter</string>
+    <string name="misfire_total">Total (all cylinders): %1$d</string>
+    <string name="misfire_cyl1">Cylinder 1: %1$d</string>
+    <string name="misfire_load">Under load: %1$d</string>
 </resources>

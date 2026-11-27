@@ -77,8 +77,13 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     private val _tweakStates = MutableStateFlow<Map<String, Boolean>>(emptyMap())
     val tweakStates: StateFlow<Map<String, Boolean>> = _tweakStates.asStateFlow()
 
+    private val _tweakSupported = MutableStateFlow<Map<String, Boolean>>(emptyMap())
+    val tweakSupported: StateFlow<Map<String, Boolean>> = _tweakSupported.asStateFlow()
+
     private val _tweakLogs = MutableStateFlow<List<String>>(emptyList())
     val tweakLogs: StateFlow<List<String>> = _tweakLogs.asStateFlow()
+
+    private var didAutoReadTweaksForSession = false
 
     private val _selectedProfileId = MutableStateFlow(
         prefs.getString("vehicle_profile_id", VehicleProfileRegistry.AUTO_PROFILE_ID)
@@ -112,6 +117,12 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                     _sessionState.value = it
                     if (it.isRunning) {
                         _activeProfile.value = resolveActiveProfile(_selectedProfileId.value, it.detectedProfileId)
+                        if (!didAutoReadTweaksForSession && it.lastSample != null) {
+                            didAutoReadTweaksForSession = true
+                            refreshTweakStates()
+                        }
+                    } else {
+                        didAutoReadTweaksForSession = false
                     }
                     val sample = it.lastSample
                     if (sample != null) {
@@ -274,6 +285,28 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     fun isVLinkerConnected(): Boolean =
         _sessionState.value.isVLinkerCapable ||
             com.alexqem.chr.core.tweaks.EcuTweaks.isVLinkerAdapter(_selectedDevice.value?.name)
+
+    fun refreshTweakStates() {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            val svc = loggingServiceRef?.get()
+            val probe = com.alexqem.chr.core.tweaks.EcuTweaks.readAllSwitches(
+                isVLinker = isVLinkerConnected(),
+                isSim = _useSimulator.value,
+                sendFn = if (svc != null && _sessionState.value.isRunning && !_useSimulator.value) {
+                    { cmd -> svc.sendRawCommand(cmd) }
+                } else null
+            )
+            if (probe.states.isNotEmpty()) {
+                _tweakStates.value = _tweakStates.value + probe.states
+            }
+            if (probe.supported.isNotEmpty()) {
+                _tweakSupported.value = _tweakSupported.value + probe.supported
+            }
+            if (probe.logs.isNotEmpty()) {
+                _tweakLogs.value = (_tweakLogs.value + probe.logs).takeLast(100)
+            }
+        }
+    }
 
     fun runTweak(spec: TweakSpec, enabled: Boolean) {
         if (_tweakStatus.value is TweakUiState.Pending) return
