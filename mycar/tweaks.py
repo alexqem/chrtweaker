@@ -212,7 +212,7 @@ def execute_tweak(
     try:
         elm_send_fn(header_cmd)
         raw_resp = elm_send_fn(cmd).strip()
-        is_err = any(m in raw_resp.upper() for m in ("7F", "ERROR", "NO DATA", "UNABLE", "?"))
+        is_err = any(m in raw_resp.upper() for m in ("7F", "ERROR", "NO DATA", "UNABLE", "STOPPED", "?"))
         ok = not is_err
         log_line = (
             f"[{ts}] {'OK' if ok else 'FAIL'} | {spec.protocol} | {header_cmd} | "

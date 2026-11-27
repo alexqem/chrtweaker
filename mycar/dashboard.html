@@ -316,7 +316,11 @@
   </div>
 
   <div id="tab-hud" style="display:none">
-    <div class="hud-grid">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <span style="font-size:11px;color:var(--muted-foreground);">Режим лобового стекла (WakeLock)</span>
+      <button class="tweak-btn" id="hud-mirror-btn" onclick="toggleHudMirror()">Зеркало (HUD)</button>
+    </div>
+    <div class="hud-grid" id="hud-grid">
       <div class="hud-card"><div class="hud-label">Скорость</div><div class="hud-val" style="color:var(--maf)" id="hud-speed">—<span class="hud-unit">км/ч</span></div></div>
       <div class="hud-card"><div class="hud-label">Обороты</div><div class="hud-val" style="color:var(--rpm)" id="hud-rpm">—<span class="hud-unit">RPM</span></div></div>
       <div class="hud-card"><div class="hud-label">ОЖ</div><div class="hud-val" style="color:var(--coolant)" id="hud-coolant">—<span class="hud-unit">°C</span></div></div>
@@ -771,6 +775,15 @@ async function runTweak(id, enabled) {
   } catch (e) {
     showTweakBanner('err', '❌ Request failed: ' + e);
   }
+}
+
+function toggleHudMirror() {
+  const g = document.getElementById('hud-grid');
+  const btn = document.getElementById('hud-mirror-btn');
+  const on = g.style.transform === 'scaleX(-1)';
+  g.style.transform = on ? '' : 'scaleX(-1)';
+  btn.textContent = on ? 'Зеркало (HUD)' : 'Зеркало: ВКЛ';
+  if (!on && navigator.wakeLock) { navigator.wakeLock.request('screen').catch(() => {}); }
 }
 
 function updateHud(row) {

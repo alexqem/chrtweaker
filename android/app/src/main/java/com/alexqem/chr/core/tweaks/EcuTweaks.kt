@@ -33,8 +33,12 @@ object EcuTweaks {
         TweakSpec("ac_eco_mode", "Эко-режим кондиционера", "Кондиционер работает мягче, чтобы экономить топливо", "0x7C4", "ISO 15765-4 CAN (ATSP6) · KWP 21/3B", true, "3BD101", "3BD100"),
         TweakSpec("rear_seatbelt_chime", "Пищалка задних ремней", "Звуковое напоминание, если сзади не пристегнулись", "0x7C0", "ISO 15765-4 CAN (ATSP6) · KWP 21/3B", true, "3BC401", "3BC400"),
         TweakSpec("turn_signal_3", "Поворотник: 3 мигания", "Заводской режим при лёгком касании рычага", "0x750", "ISO 15765-4 CAN (ATSP6) · KWP 3B", false, "3BA503"),
+        TweakSpec("turn_signal_4", "Поворотник: 4 мигания", "4 мигания при лёгком касании рычага", "0x750", "ISO 15765-4 CAN (ATSP6) · KWP 3B", false, "3BA504"),
         TweakSpec("turn_signal_5", "Поворотник: 5 миганий", "Удобно для перестроения в городе — мигает 5 раз", "0x750", "ISO 15765-4 CAN (ATSP6) · KWP 3B", false, "3BA505"),
+        TweakSpec("turn_signal_6", "Поворотник: 6 миганий", "6 миганий при лёгком касании рычага", "0x750", "ISO 15765-4 CAN (ATSP6) · KWP 3B", false, "3BA506"),
         TweakSpec("turn_signal_7", "Поворотник: 7 миганий", "Увеличенное время сигнала при перестроении", "0x750", "ISO 15765-4 CAN (ATSP6) · KWP 3B", false, "3BA507"),
+        TweakSpec("turn_signal_9", "Поворотник: 9 миганий", "9 миганий при лёгком касании рычага", "0x750", "ISO 15765-4 CAN (ATSP6) · KWP 3B", false, "3BA509"),
+        TweakSpec("turn_signal_11", "Поворотник: 11 миганий", "Максимум (11 миганий) при лёгком касании рычага", "0x750", "ISO 15765-4 CAN (ATSP6) · KWP 3B", false, "3BA50B"),
         TweakSpec("abs_inspection", "Сервисный режим ABS", "Только для СТО: проверка тормозов и ABS на стенде", "0x7B0", "ISO 15765-4 CAN (ATSP6) · UDS 10 03", false, "31010200", requiresVLinker = false),
         TweakSpec("atf_reset", "Сброс счётчика масла CVT", "Нажимать только после замены масла в вариаторе", "0x7E1", "ISO 15765-4 CAN (ATSP6) · UDS 31 01", false, "31010F00", requiresVLinker = false)
     )
@@ -74,6 +78,7 @@ object EcuTweaks {
             val ok = !raw.contains("7F", ignoreCase = true) &&
                 !raw.contains("ERROR", ignoreCase = true) &&
                 !raw.contains("NO DATA", ignoreCase = true) &&
+                !raw.contains("STOPPED", ignoreCase = true) &&
                 !raw.contains("?")
             val logLine = "[$ts] ${if (ok) "OK" else "FAIL"} | ${spec.protocol} | $header | TX: $cmd | RX: $raw"
             TweakResult(ok, if (ok) "${spec.title}: выполнено" else "${spec.title}: ошибка ($raw)", logLine)

@@ -32,7 +32,7 @@ object ElmConstants {
         "ATSP6" to 1000L
     )
 
-    val NEGATIVE_MARKERS = listOf("UNABLE", "NO DATA", "?", "CAN ERROR")
+    val NEGATIVE_MARKERS = listOf("UNABLE", "NO DATA", "?", "CAN ERROR", "STOPPED")
 
     const val CMD_VERIFY_CAR = "0100"
     const val CMD_HEADERS_ON = "ATH1"

@@ -19,6 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -407,6 +408,13 @@ fun EcuTweaksTab(
 @Composable
 fun HudTab(state: LiveSessionState) {
     val s = state.lastSample
+    var isMirrored by remember { mutableStateOf(false) }
+    val view = androidx.compose.ui.platform.LocalView.current
+    DisposableEffect(view) {
+        view.keepScreenOn = true
+        onDispose { view.keepScreenOn = false }
+    }
+
     fun fmt(v: Double?, digits: Int = 0): String =
         if (v != null && !v.isNaN()) String.format(Locale.US, "%.${digits}f", v) else "—"
 
@@ -419,21 +427,44 @@ fun HudTab(state: LiveSessionState) {
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            HudGaugeCard("СКОРОСТЬ", fmt(s?.speed), "км/ч", AccentBlue, Modifier.weight(1f))
-            HudGaugeCard("ОБОРОТЫ", fmt(s?.rpm), "RPM", RpmRed, Modifier.weight(1f))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Экран не гаснет (KeepScreenOn)", fontSize = 11.sp, color = TextSecondary)
+            Button(
+                onClick = { isMirrored = !isMirrored },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (isMirrored) CoolantBlue.copy(alpha = 0.2f) else CardBgElevated,
+                    contentColor = if (isMirrored) CoolantBlue else TextPrimary
+                ),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+            ) {
+                Text(if (isMirrored) "Зеркало: ВКЛ" else "Зеркало (HUD)", fontSize = 11.sp)
+            }
         }
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            HudGaugeCard("ОЖ (термостат 82–88)", fmt(s?.coolant, 1), "°C", coolantColor, Modifier.weight(1f))
-            HudGaugeCard("МАСЛО", fmt(s?.oilTemp, 1), "°C", OilAmber, Modifier.weight(1f))
-        }
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            HudGaugeCard("STFT", fmt(s?.stft, 1), "%", StftRose, Modifier.weight(1f))
-            HudGaugeCard("LTFT", fmt(s?.ltft, 1), "%", LtftOrange, Modifier.weight(1f))
-        }
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            HudGaugeCard("АКБ", fmt(s?.voltage, 2), "V", VoltTeal, Modifier.weight(1f))
-            HudGaugeCard("CVT", fmt(s?.cvtTemp, 1), "°C", CatPurple, Modifier.weight(1f))
+
+        Column(
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier.graphicsLayer { scaleX = if (isMirrored) -1f else 1f }
+        ) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                HudGaugeCard("СКОРОСТЬ", fmt(s?.speed), "км/ч", AccentBlue, Modifier.weight(1f))
+                HudGaugeCard("ОБОРОТЫ", fmt(s?.rpm), "RPM", RpmRed, Modifier.weight(1f))
+            }
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                HudGaugeCard("ОЖ", fmt(s?.coolant, 1), "°C", coolantColor, Modifier.weight(1f))
+                HudGaugeCard("МАСЛО", fmt(s?.oilTemp, 1), "°C", OilAmber, Modifier.weight(1f))
+            }
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                HudGaugeCard("STFT", fmt(s?.stft, 1), "%", StftRose, Modifier.weight(1f))
+                HudGaugeCard("LTFT", fmt(s?.ltft, 1), "%", LtftOrange, Modifier.weight(1f))
+            }
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                HudGaugeCard("АКБ", fmt(s?.voltage, 2), "V", VoltTeal, Modifier.weight(1f))
+                HudGaugeCard("CVT", fmt(s?.cvtTemp, 1), "°C", CatPurple, Modifier.weight(1f))
+            }
         }
         Spacer(modifier = Modifier.height(24.dp))
     }
