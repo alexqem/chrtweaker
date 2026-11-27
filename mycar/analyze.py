@@ -37,6 +37,12 @@ def analyze_session(csv_path: Path) -> Path:
 
     meta_path = csv_path.with_suffix(".meta.json")
     meta = json.loads(meta_path.read_text()) if meta_path.exists() else {}
+    prof = meta.get("profile") or {}
+    if prof.get("name") and prof["name"] != config.PROFILE_NAME:
+        config.set_profile(prof["name"])  # session's own vehicle profile drives norms
+    if meta and not config.PROFILE["cold_start_analysis"]:
+        print(f"Profile '{config.PROFILE_NAME}': cold-start analysis off "
+              f"(hybrid auto-stop) — stats only, no norm verdicts")
 
     # warm-up duration: first ts when coolant >= WARM
     warm_at = next((r["ts"] for r in rows if r["coolant"] is not None and r["coolant"] >= config.WARM_COOLANT_MIN_C), None)
@@ -59,7 +65,7 @@ def analyze_session(csv_path: Path) -> Path:
     findings = []
     if meta.get("mode") != "cold":
         findings.append("⚠ session started warm (coolant > 40 °C) — not a cold-start test")
-    if warm_at is None:
+    if warm_at is None and config.PROFILE["cold_start_analysis"]:
         findings.append(f"⚠ coolant never reached {n['warm_target_c']} °C in this session")
     rpm_idle = per_col.get("rpm")
     lo, hi = n["idle_rpm_cvt"]
@@ -77,7 +83,7 @@ def analyze_session(csv_path: Path) -> Path:
         if s and (s["min"] < trim_lo or s["max"] > trim_hi):
             findings.append(f"• {trim.upper()} exceeded {trim_lo}…{trim_hi}% band after warm-up: "
                             f"{s['min']:+.1f}% … {s['max']:+.1f}%")
-    if warm_at is None:
+    if warm_at is None and config.PROFILE["cold_start_analysis"]:
         findings.append("• trim check skipped: session never reached warm-up (open loop — trims not normed)")
     if boost and boost["max"] > 0:
         findings.append(f"• positive boost observed: max {boost['max']:.1f} kPa")

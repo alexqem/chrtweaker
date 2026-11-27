@@ -26,7 +26,10 @@ DASHBOARD_TTL_S = 3600  # hard lifetime: 1 hour, then the port is freed
 # source of truth. No norm number is ever hardcoded in the page.
 _TEMPLATE = Path(__file__).with_name("dashboard.html").read_text(encoding="utf-8")
 assert "__NORMS_JSON__" in _TEMPLATE, "dashboard.html lost its __NORMS_JSON__ placeholder"
-PAGE = _TEMPLATE.replace("__NORMS_JSON__", json.dumps(config.NORMS))
+assert "__PROFILE_LABEL__" in _TEMPLATE, "dashboard.html lost its __PROFILE_LABEL__ placeholder"
+PAGE = (_TEMPLATE
+        .replace("__NORMS_JSON__", json.dumps(config.NORMS))
+        .replace("__PROFILE_LABEL__", config.PROFILE["short"]))
 
 
 class State:

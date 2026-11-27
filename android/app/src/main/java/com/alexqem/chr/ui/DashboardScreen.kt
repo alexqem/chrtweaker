@@ -225,7 +225,7 @@ fun DashboardScreen(
                             ) {
                                 Column {
                                     Text(dev.name, color = TextPrimary, fontWeight = FontWeight.SemiBold)
-                                    Text(dev.address, color = TextSecondary, fontSize = 11.sp)
+                                    Text(dev.address, color = TextSecondary, fontSize = 12.sp)
                                 }
                                 if (dev.score == 2) {
                                     Badge(containerColor = OkGreen) { Text("OBD", color = BgDark) }
@@ -295,7 +295,7 @@ fun EcuTweaksTab(
                 } else {
                     "Ограниченный режим: подключён не Vgate vLinker FD+ BT4.0. Настройки Body ECU (0x750/0x7C0) скрыты, так как дешёвые ELM327 не поддерживают расширенную адресацию."
                 },
-                fontSize = 11.sp,
+                fontSize = 12.sp,
                 color = if (fullAccess) OkGreen else WarnAmber
             )
         }
@@ -324,7 +324,7 @@ fun EcuTweaksTab(
                     modifier = Modifier.weight(1f)
                 )
                 if (tweakStatus !is TweakUiState.Pending) {
-                    TextButton(onClick = onDismissStatus) { Text("OK", fontSize = 11.sp) }
+                    TextButton(onClick = onDismissStatus) { Text("OK", fontSize = 12.sp) }
                 }
             }
         }
@@ -347,7 +347,7 @@ fun EcuTweaksTab(
             ) {
                 Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
                     Text(spec.title, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
-                    Text(spec.description, fontSize = 11.sp, color = TextSecondary)
+                    Text(spec.description, fontSize = 12.sp, color = TextSecondary)
                     Text("${spec.ecu} · ${spec.protocol}", fontSize = 10.sp, fontFamily = FontFamily.Monospace, color = ChartTick)
                 }
                 if (spec.isSwitch) {
@@ -363,7 +363,7 @@ fun EcuTweaksTab(
                         colors = ButtonDefaults.buttonColors(containerColor = CardBgElevated, contentColor = TextPrimary),
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                     ) {
-                        Text("Выполнить", fontSize = 11.sp)
+                        Text("Выполнить", fontSize = 12.sp)
                     }
                 }
             }
@@ -387,7 +387,7 @@ fun EcuTweaksTab(
                 TextButton(onClick = {
                     clipboard.setText(androidx.compose.ui.text.AnnotatedString(tweakLogs.joinToString("\n")))
                 }) {
-                    Text("Копировать лог", fontSize = 11.sp, color = CoolantBlue)
+                    Text("Копировать лог", fontSize = 12.sp, color = CoolantBlue)
                 }
             }
             Text(
@@ -432,7 +432,7 @@ fun HudTab(state: LiveSessionState) {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Экран не гаснет, пока открыт HUD", fontSize = 11.sp, color = TextSecondary)
+            Text("Экран не гаснет, пока открыт HUD", fontSize = 12.sp, color = TextSecondary)
             Button(
                 onClick = { isMirrored = !isMirrored },
                 colors = ButtonDefaults.buttonColors(
@@ -441,7 +441,7 @@ fun HudTab(state: LiveSessionState) {
                 ),
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
             ) {
-                Text(if (isMirrored) "Зеркало: ВКЛ" else "Зеркало (HUD)", fontSize = 11.sp)
+                Text(if (isMirrored) "Зеркало: ВКЛ" else "Зеркало (HUD)", fontSize = 12.sp)
             }
         }
 
@@ -463,7 +463,7 @@ fun HudTab(state: LiveSessionState) {
             }
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 HudGaugeCard("АКБ", fmt(s?.voltage, 2), "V", VoltTeal, Modifier.weight(1f))
-                HudGaugeCard("CVT", fmt(s?.cvtTemp, 1), "°C", CatPurple, Modifier.weight(1f))
+                HudGaugeCard("CVT", fmt(s?.cvtTemp, 1), "°C", CatLime, Modifier.weight(1f))
             }
         }
         Spacer(modifier = Modifier.height(24.dp))
@@ -479,7 +479,7 @@ fun HudGaugeCard(label: String, value: String, unit: String, accent: Color, modi
             .border(1.dp, BorderLine, RoundedCornerShape(12.dp))
             .padding(16.dp)
     ) {
-        Text(label, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = TextSecondary)
+        Text(label, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = TextSecondary)
         Spacer(modifier = Modifier.height(6.dp))
         Row(verticalAlignment = Alignment.Bottom) {
             Text(value, fontSize = 32.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, color = accent)
@@ -700,7 +700,7 @@ fun Pill(text: String, color: Color) {
             .border(1.dp, color.copy(alpha = 0.4f), RoundedCornerShape(99.dp))
             .padding(horizontal = 10.dp, vertical = 4.dp)
     ) {
-        Text(text = text, color = color, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+        Text(text = text, color = color, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
     }
 }
 
@@ -733,7 +733,7 @@ fun ControlPanel(
             ) {
                 Column {
                     Text("Симулятор", color = TextPrimary, fontWeight = FontWeight.Medium)
-                    Text("Тест без машины (кривая 8NR-FTS)", color = TextSecondary, fontSize = 11.sp)
+                    Text("Тест без машины (кривая 8NR-FTS)", color = TextSecondary, fontSize = 12.sp)
                 }
                 Switch(
                     checked = useSimulator,
@@ -789,7 +789,7 @@ fun ControlPanel(
                 Text(
                     text = state.statusMessage,
                     color = TextSecondary,
-                    fontSize = 11.sp,
+                    fontSize = 12.sp,
                     fontFamily = FontFamily.Monospace,
                     modifier = Modifier.align(Alignment.CenterHorizontally)
                 )

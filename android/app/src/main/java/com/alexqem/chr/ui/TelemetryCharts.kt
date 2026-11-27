@@ -74,7 +74,7 @@ fun TelemetryChartsSection(history: List<SensorSample>) {
         TelemetryChartCard(
             title = "Catalyst (°C) & Battery (V×20)",
             series = listOf(
-                ChartSeries("Cat", CatPurple, history.map { it.catalyst }),
+                ChartSeries("Cat", CatLime, history.map { it.catalyst }),
                 ChartSeries("Volt×20", VoltTeal, history.map { it.voltage?.times(20.0) })
             )
         )

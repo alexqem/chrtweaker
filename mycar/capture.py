@@ -163,6 +163,7 @@ def capture(port: str | None, simulate: bool, max_minutes: float, sim_time_scale
 
         meta = {
             "car": config.CAR,
+            "profile": {"name": config.PROFILE_NAME, "label": config.PROFILE["label"]},
             "car_id": car_id,
             "mode": mode,
             "sim": bool(simulate),  # trend must not mix sim runs into LTFT drift
@@ -182,6 +183,9 @@ def capture(port: str | None, simulate: bool, max_minutes: float, sim_time_scale
 
         started_at = time.monotonic()
         cvt_misses, cvt_skip = 0, False  # cvt: give up after CVT_GIVE_UP_CYCLES empty tries
+        if not config.PROFILE["cvt_probe"]:
+            cvt_skip = True
+            log(f"  CVT probe disabled by profile '{config.PROFILE_NAME}'")
         tail = config.COOLDOWN_AFTER_WARM_S if tail_s is None else tail_s
         with open(csv_path, "w", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=sensors.COLUMNS)

@@ -19,6 +19,8 @@ def main():
     cp.add_argument("--dashboard", action=argparse.BooleanOptionalAction, default=True,
                     help="live web dashboard (default on; self-closes after 1 h)")
     cp.add_argument("--dashboard-port", type=int, default=config.DASHBOARD_PORT)
+    cp.add_argument("--profile", choices=sorted(config.PROFILES), default=None,
+                    help="vehicle profile (default: MYCAR_PROFILE from .env, else 8nrfts)")
     cp.add_argument("--no-multi", action="store_true",
                     help="disable multi-PID requests (one query per PID; auto-fallback anyway)")
     cp.add_argument("--hold", action="store_true",
@@ -57,6 +59,10 @@ def main():
         import sys
 
         from mycar.capture import capture
+
+        if args.profile:
+            config.set_profile(args.profile)
+            print(f"Profile: {config.PROFILE_NAME} — {config.PROFILE['label']}")
 
         # line-buffered console log: with nohup/redirect Python 3.14 buffers
         # stdout up to ~1 MB — a killed process loses every diagnostic line

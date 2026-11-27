@@ -45,6 +45,57 @@ CAR = {
     "protocol_hint": "ISO 15765-4 CAN 11/500 (id '6')",
 }
 
+# --- Vehicle profiles: what transfers across Toyota models (see README) ---
+# Standard Mode-01 telemetry is OBD-II-generic (any 2008+ gasoline car).
+# Model-specific parts:
+#   * NORMS — engine/transmission-dependent (idle, thermostat, trim verdicts);
+#   * CVT probe — KWP-era Toyota CVTs answer 21D9/2182; 2016+ UDS ECUs use
+#     Mode 22 (221627) which is NOT implemented yet (probe stays silent);
+#   * ECU tweaks — verified on NGX10 only (docs/ECU_TWEAKS.md).
+# Select: MYCAR_PROFILE in .env, `capture --profile NAME`, or analyze/db pick
+# the profile up from the session's meta.json.
+PROFILES = {
+    "8nrfts": {
+        "label": "Toyota C-HR NGX10 · 1.2T 8NR-FTS · K114 CVT",
+        "short": "Toyota C-HR NGX10 · 1.2T 8NR-FTS",
+        "verified": True,          # all norms below verified on this car
+        "cvt_probe": True,
+        "cold_start_analysis": True,
+        "norms": {},               # base NORMS are the 8NR-FTS values
+    },
+    "2zrfe": {
+        "label": "Toyota 1.8 NA 2ZR-FE (Corolla / Auris, CVT/MT)",
+        "short": "Toyota · 1.8 2ZR-FE (Corolla / Auris)",
+        "verified": False,         # norms are Toyota-manual grade, not road-verified
+        "cvt_probe": True,         # K313 CVT answers the same 21D9/2182 family
+        "cold_start_analysis": True,
+        "norms": {
+            "idle_rpm_cvt": (620, 720),    # 2ZR-FE warm idle sits below the 1.2T
+            "thermostat_open_c": (80, 86), # Toyota common 82-86 °C
+        },
+    },
+    "2zrfxe": {
+        "label": "Toyota 1.8 Hybrid 2ZR-FXE (C-HR NGX50 / Corolla Hybrid / Prius)",
+        "short": "Toyota · 1.8 Hybrid 2ZR-FXE",
+        "verified": False,
+        "cvt_probe": True,
+        "cold_start_analysis": False,      # engine auto-stop breaks cold-start logic
+        "norms": {},
+    },
+    "generic": {
+        "label": "Any OBD-II gasoline car — standard Mode-01 telemetry only",
+        "short": "OBD-II · generic gasoline",
+        "verified": False,
+        "cvt_probe": False,                # Toyota 21xx probe makes no sense here
+        "cold_start_analysis": True,
+        "norms": {},
+    },
+}
+PROFILE_NAME = (os.environ.get("MYCAR_PROFILE") or "8nrfts").strip().lower()
+PROFILE = PROFILES.get(PROFILE_NAME)
+if PROFILE is None:
+    raise SystemExit(f"Unknown MYCAR_PROFILE '{PROFILE_NAME}'. Known: {', '.join(PROFILES)}")
+
 # --- Session thresholds (tune here, not in logic) ---
 COLD_COOLANT_MAX_C = 40.0    # coolant below this at connect  => cold start session
 WARM_COOLANT_MIN_C = 80.0    # coolant reached this          => warm-up complete
@@ -79,3 +130,19 @@ NORMS = {
     "cold_start_max_c": COLD_COOLANT_MAX_C,
     "warm_target_c": WARM_COOLANT_MIN_C,
 }
+
+_BASE_NORMS = dict(NORMS)
+
+
+def set_profile(name: str) -> None:
+    """Switch vehicle profile (norms/CVT probe/analysis flags) at runtime."""
+    global PROFILE_NAME, PROFILE, NORMS
+    key = (name or "").strip().lower()
+    prof = PROFILES.get(key)
+    if prof is None:
+        raise SystemExit(f"Unknown profile '{name}'. Known: {', '.join(PROFILES)}")
+    PROFILE_NAME, PROFILE = key, prof
+    NORMS = {**_BASE_NORMS, **prof["norms"]}
+
+
+set_profile(PROFILE_NAME)  # apply the env-selected profile at import
