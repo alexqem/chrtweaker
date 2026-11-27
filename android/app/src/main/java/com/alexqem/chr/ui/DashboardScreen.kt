@@ -22,10 +22,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.alexqem.chr.R
 import com.alexqem.chr.core.common.VehicleConstants
 import com.alexqem.chr.core.database.SessionEntity
 import com.alexqem.chr.core.model.SensorSample
@@ -134,22 +136,22 @@ fun DashboardScreen(
                 Tab(
                     selected = activeTab == 0,
                     onClick = { activeTab = 0 },
-                    text = { Text("Телеметрия", fontSize = 12.sp, fontWeight = FontWeight.SemiBold) }
+                    text = { Text(stringResource(R.string.tab_telemetry), fontSize = 12.sp, fontWeight = FontWeight.SemiBold) }
                 )
                 Tab(
                     selected = activeTab == 1,
                     onClick = { activeTab = 1 },
-                    text = { Text("ECU Tweaks", fontSize = 12.sp, fontWeight = FontWeight.SemiBold) }
+                    text = { Text(stringResource(R.string.tab_tweaks), fontSize = 12.sp, fontWeight = FontWeight.SemiBold) }
                 )
                 Tab(
                     selected = activeTab == 2,
                     onClick = { activeTab = 2 },
-                    text = { Text("HUD", fontSize = 12.sp, fontWeight = FontWeight.SemiBold) }
+                    text = { Text(stringResource(R.string.tab_hud), fontSize = 12.sp, fontWeight = FontWeight.SemiBold) }
                 )
                 Tab(
                     selected = activeTab == 3,
                     onClick = { activeTab = 3 },
-                    text = { Text("История", fontSize = 12.sp, fontWeight = FontWeight.SemiBold) }
+                    text = { Text(stringResource(R.string.tab_history), fontSize = 12.sp, fontWeight = FontWeight.SemiBold) }
                 )
             }
             Spacer(modifier = Modifier.height(10.dp))
@@ -189,7 +191,7 @@ fun DashboardScreen(
             ControlPanel(
                 state = state,
                 useSimulator = useSimulator,
-                selectedDeviceName = selectedDevice?.name ?: "No device selected",
+                selectedDeviceName = selectedDevice?.name ?: stringResource(R.string.ctrl_no_device),
                 onToggleSimulator = { viewModel.setUseSimulator(it) },
                 onSelectDeviceClick = {
                     viewModel.startBleScan()
@@ -211,7 +213,7 @@ fun DashboardScreen(
     if (showDevicePicker) {
         AlertDialog(
             onDismissRequest = { showDevicePicker = false },
-            title = { Text("Select OBD BLE Adapter", color = TextPrimary) },
+            title = { Text(stringResource(R.string.ble_picker_title), color = TextPrimary) },
             text = {
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Row(
@@ -221,7 +223,7 @@ fun DashboardScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Все BLE-устройства", color = TextSecondary, fontSize = 12.sp)
+                        Text(stringResource(R.string.ble_include_all), color = TextSecondary, fontSize = 12.sp)
                         Switch(
                             checked = includeAllBle,
                             onCheckedChange = { viewModel.toggleIncludeAllBle(it) }
@@ -232,12 +234,12 @@ fun DashboardScreen(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             CircularProgressIndicator(modifier = Modifier.size(16.dp), color = AccentBlue)
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Scanning for 0xFFF0...", color = TextSecondary, fontSize = 13.sp)
+                            Text(stringResource(R.string.ble_scanning), color = TextSecondary, fontSize = 13.sp)
                         }
                         Spacer(modifier = Modifier.height(10.dp))
                     }
                     if (discoveredDevices.isEmpty() && !isScanning) {
-                        Text("No ELM327 BLE devices found yet.", color = TextSecondary)
+                        Text(stringResource(R.string.ble_none_found), color = TextSecondary)
                     }
                     LazyColumn(modifier = Modifier.heightIn(max = 240.dp)) {
                         items(discoveredDevices) { dev ->
@@ -275,7 +277,7 @@ fun DashboardScreen(
     if (showProfilePicker) {
         AlertDialog(
             onDismissRequest = { showProfilePicker = false },
-            title = { Text("Профиль автомобиля", color = TextPrimary) },
+            title = { Text(stringResource(R.string.profile_dialog_title), color = TextPrimary) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     val isAuto = selectedProfileId == VehicleProfileRegistry.AUTO_PROFILE_ID
@@ -292,8 +294,8 @@ fun DashboardScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("Автоопределение (VIN / CalID)", color = TextPrimary, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                            Text("Определяется по Mode 09 при старте сессии", color = TextSecondary, fontSize = 11.sp)
+                            Text(stringResource(R.string.profile_auto_title), color = TextPrimary, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                            Text(stringResource(R.string.profile_auto_sub), color = TextSecondary, fontSize = 11.sp)
                         }
                         if (isAuto) Icon(Icons.Default.Check, contentDescription = null, tint = AccentBlue)
                     }
@@ -321,7 +323,7 @@ fun DashboardScreen(
                 }
             },
             confirmButton = {
-                TextButton(onClick = { showProfilePicker = false }) { Text("Закрыть") }
+                TextButton(onClick = { showProfilePicker = false }) { Text(stringResource(R.string.btn_close)) }
             },
             containerColor = CardBg
         )
@@ -376,9 +378,9 @@ fun EcuTweaksTab(
         ) {
             Text(
                 text = if (fullAccess) {
-                    "Vgate vLinker FD+ / Симулятор: полный доступ ко всем ECU (0x750, 0x7C0, 0x7C4)"
+                    stringResource(R.string.tweaks_full_access)
                 } else {
-                    "Ограниченный режим: подключён не Vgate vLinker FD+ BT4.0. Настройки Body ECU (0x750/0x7C0) скрыты, так как дешёвые ELM327 не поддерживают расширенную адресацию."
+                    stringResource(R.string.tweaks_limited)
                 },
                 fontSize = 12.sp,
                 color = if (fullAccess) OkGreen else WarnAmber
@@ -448,7 +450,7 @@ fun EcuTweaksTab(
                         colors = ButtonDefaults.buttonColors(containerColor = CardBgElevated, contentColor = TextPrimary),
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                     ) {
-                        Text("Выполнить", fontSize = 12.sp)
+                        Text(stringResource(R.string.btn_run), fontSize = 12.sp)
                     }
                 }
             }
@@ -472,11 +474,11 @@ fun EcuTweaksTab(
                 TextButton(onClick = {
                     clipboard.setText(androidx.compose.ui.text.AnnotatedString(tweakLogs.joinToString("\n")))
                 }) {
-                    Text("Копировать лог", fontSize = 12.sp, color = CoolantBlue)
+                    Text(stringResource(R.string.btn_copy_log), fontSize = 12.sp, color = CoolantBlue)
                 }
             }
             Text(
-                text = if (tweakLogs.isEmpty()) "Команды и ответы ECU появятся здесь..." else tweakLogs.joinToString("\n"),
+                text = if (tweakLogs.isEmpty()) stringResource(R.string.tweaks_log_empty) else tweakLogs.joinToString("\n"),
                 fontSize = 10.sp,
                 fontFamily = FontFamily.Monospace,
                 color = TextPrimary,
@@ -519,7 +521,7 @@ fun HudTab(state: LiveSessionState, profile: VehicleProfile) {
         ) {
             Column {
                 Text(profile.shortLabel, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
-                Text("Экран не гаснет, пока открыт HUD", fontSize = 11.sp, color = TextSecondary)
+                Text(stringResource(R.string.hud_keep_screen_on), fontSize = 11.sp, color = TextSecondary)
             }
             Button(
                 onClick = { isMirrored = !isMirrored },
@@ -529,7 +531,7 @@ fun HudTab(state: LiveSessionState, profile: VehicleProfile) {
                 ),
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
             ) {
-                Text(if (isMirrored) "Зеркало: ВКЛ" else "Зеркало (HUD)", fontSize = 12.sp)
+                Text(if (isMirrored) stringResource(R.string.hud_mirror_on) else stringResource(R.string.hud_mirror_off), fontSize = 12.sp)
             }
         }
 
@@ -538,19 +540,19 @@ fun HudTab(state: LiveSessionState, profile: VehicleProfile) {
             modifier = Modifier.graphicsLayer { scaleX = if (isMirrored) -1f else 1f }
         ) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                HudGaugeCard("СКОРОСТЬ", fmt(s?.speed), "км/ч", AccentBlue, Modifier.weight(1f))
-                HudGaugeCard("ОБОРОТЫ", fmt(s?.rpm), "RPM", RpmRed, Modifier.weight(1f))
+                HudGaugeCard(stringResource(R.string.hud_speed), fmt(s?.speed), "km/h", AccentBlue, Modifier.weight(1f))
+                HudGaugeCard(stringResource(R.string.hud_rpm), fmt(s?.rpm), "RPM", RpmRed, Modifier.weight(1f))
             }
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                HudGaugeCard("ОЖ", fmt(s?.coolant, 1), "°C", coolantColor, Modifier.weight(1f))
-                HudGaugeCard("МАСЛО", fmt(s?.oilTemp, 1), "°C", OilAmber, Modifier.weight(1f))
+                HudGaugeCard(stringResource(R.string.hud_coolant), fmt(s?.coolant, 1), "°C", coolantColor, Modifier.weight(1f))
+                HudGaugeCard(stringResource(R.string.hud_oil), fmt(s?.oilTemp, 1), "°C", OilAmber, Modifier.weight(1f))
             }
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 HudGaugeCard("STFT", fmt(s?.stft, 1), "%", StftRose, Modifier.weight(1f))
                 HudGaugeCard("LTFT", fmt(s?.ltft, 1), "%", LtftOrange, Modifier.weight(1f))
             }
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                HudGaugeCard("АКБ", fmt(s?.voltage, 2), "V", VoltTeal, Modifier.weight(1f))
+                HudGaugeCard(stringResource(R.string.hud_voltage), fmt(s?.voltage, 2), "V", VoltTeal, Modifier.weight(1f))
                 HudGaugeCard(
                     "CVT",
                     if (profile.cvtProbe) fmt(s?.cvtTemp, 1) else "N/A",
@@ -592,18 +594,18 @@ fun SessionHeaderPills(state: LiveSessionState) {
     ) {
         // Mode pill
         val modeText = when {
-            !state.isRunning -> "ОЖИДАНИЕ"
-            state.mode == "cold" -> "❄ ХОЛОДНЫЙ ПУСК"
-            else -> "ПРОГРЕТЫЙ"
+            !state.isRunning -> stringResource(R.string.pill_waiting)
+            state.mode == "cold" -> stringResource(R.string.pill_cold)
+            else -> stringResource(R.string.pill_warm)
         }
         val modeColor = if (state.mode == "cold") ColdBlue else WarnAmber
         Pill(text = modeText, color = modeColor)
 
         // Connection pill
         val connText = when {
-            state.isSim -> "СИМУЛЯТОР"
-            state.isRunning -> "ОНЛАЙН"
-            else -> "НЕТ СВЯЗИ"
+            state.isSim -> stringResource(R.string.ctrl_sim).uppercase()
+            state.isRunning -> stringResource(R.string.pill_online)
+            else -> stringResource(R.string.pill_offline)
         }
         val connColor = if (state.isRunning) OkGreen else TextSecondary
         Pill(text = connText, color = connColor)
@@ -815,7 +817,7 @@ fun ControlPanel(
         colors = CardDefaults.cardColors(containerColor = CardBg)
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
-            Text("Параметры подключения", color = TextSecondary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            Text(stringResource(R.string.ctrl_title), color = TextSecondary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
 
             Spacer(modifier = Modifier.height(8.dp))
 
@@ -826,8 +828,8 @@ fun ControlPanel(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column {
-                    Text("Симулятор", color = TextPrimary, fontWeight = FontWeight.Medium)
-                    Text("Тест без машины (кривая 8NR-FTS)", color = TextSecondary, fontSize = 12.sp)
+                    Text(stringResource(R.string.ctrl_sim), color = TextPrimary, fontWeight = FontWeight.Medium)
+                    Text(stringResource(R.string.ctrl_sim_sub), color = TextSecondary, fontSize = 12.sp)
                 }
                 Switch(
                     checked = useSimulator,
@@ -871,7 +873,7 @@ fun ControlPanel(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = if (state.isRunning) "ОСТАНОВИТЬ ЗАПИСЬ" else "НАЧАТЬ СЕССИЮ ЛОГА",
+                    text = if (state.isRunning) stringResource(R.string.btn_stop_session) else stringResource(R.string.btn_start_session),
                     fontWeight = FontWeight.Bold,
                     fontSize = 15.sp,
                     color = Color.White
@@ -910,20 +912,20 @@ fun SessionsHistoryTab(
                 TextButton(onClick = { onSelectSession(null) }) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Назад к списку", fontSize = 12.sp)
+                    Text(stringResource(R.string.btn_back_to_list), fontSize = 12.sp)
                 }
                 IconButton(onClick = { onShareSession(selectedSession) }) {
                     Icon(Icons.Default.Share, contentDescription = "Share session", tint = AccentBlue)
                 }
             }
             Text(
-                text = "${selectedSession.csvFile.removeSuffix(".csv")} · ${selectedSession.rows} строк",
+                text = "${selectedSession.csvFile.removeSuffix(".csv")} · ${selectedSession.rows}",
                 color = TextPrimary,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold
             )
             if (selectedSamples.isEmpty()) {
-                Text("Нет сэмплов в базе для этой сессии.", color = TextSecondary, fontSize = 12.sp)
+                Text(stringResource(R.string.history_no_samples), color = TextSecondary, fontSize = 12.sp)
             } else {
                 TelemetryChartsSection(history = selectedSamples)
             }
@@ -935,7 +937,7 @@ fun SessionsHistoryTab(
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (sessions.isEmpty()) {
             Text(
-                "Сохранённых сессий пока нет. Запустите сессию во вкладке Телеметрия.",
+                stringResource(R.string.history_empty),
                 color = TextSecondary,
                 fontSize = 13.sp
             )
