@@ -65,6 +65,7 @@
     <string name="tweak_err_failed_fmt">%1$s: ошибка (%2$s)</string>
     <string name="tweak_err_verify_fmt">%1$s: не применилось (было %2$s → осталось %3$s, ожидалось %4$s)</string>
     <string name="tweak_unsupported">Не поддерживается на этом авто</string>
+    <string name="tweak_unverified">⚠ не проверено на C-HR (платформенный близнец)</string>
     <string name="tweak_refresh">Обновить статусы</string>
     <string name="misfire_card_title">Пропуски зажигания</string>
     <string name="misfire_card_sub">ECM 0x700 · нажмите для деталей</string>

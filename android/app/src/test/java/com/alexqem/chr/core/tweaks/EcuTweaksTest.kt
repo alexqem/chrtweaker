@@ -26,6 +26,9 @@ class EcuTweaksTest {
         assertEquals(18, enTweaks.size)
         val mirrors = enTweaks.first { it.id == "auto_fold_mirrors" }
         assertEquals("Auto-fold mirrors", mirrors.title)
+        assertTrue(mirrors.verified)
+        val revBeep = enTweaks.first { it.id == "reverse_beep_cluster" }
+        assertFalse(revBeep.verified)
     }
 
     @Test

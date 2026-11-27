@@ -322,3 +322,94 @@ ATSH750;ATCRA758;ATCEA41;ATTA41;ATFCSH750;ATFCSD41300005;ATFCSM1
 Если всё прошло — деньги на vLinker не нужны. MC+ берут ради: стабильности BLE,
 скорости (5–10× на длинных сериях), честного STN без глюков. FD+ — только под CAN FD
 (новые Toyota 2022+); для NGX10 2020 переплата.
+
+---
+
+## 11. Платформенные близнецы C-HR: другие двигатели и кузова — новые команды
+
+C-HR-специфичных профилей в реверсе почти нет (только BEV 2026), petrol/hybrid C-HR
+покрываются generic-профилями. Ниже — выжимка из платформенных близнецов TNGA-C
+(`rea/extracted/toyota_all/`): Corolla Hybrid 2020- / RAV4 / Camry / Avalon Hybrid 2018+
+(профиль `e0d1f95c`, **395 PID**), Prius Gen.IV, RAV4 Hybrid 2016-2018, CHR BEV 2026.
+Формулы: `value = raw*MUL/DIV + OFS`, raw big-endian от `SBI` в payload (см. преамбулу).
+**На нашей машине не проверено** — кандидаты на прогон через `mycar` после смены донгла.
+
+### 11.1 `7C0` — комбинация приборов: кастомизация читается по OBD (главная находка)
+
+Это то самое «Customization», что раньше давал только Techstream/Carista —
+но здесь его можно **читать** (верифицировать значение до/после правки Carista).
+Запись (`2E`) в Car Scanner для Toyota отсутствует.
+
+```
+ATSH7C0
+21A7   Seat Belt Beep Query, DL1:  A=0 Dis | R=32 Ena | P=64 Ena | D=96 Dis |
+       D=128 Ena | P=160 Dis | 192=Dis R | A=160 Ena   (поразрядно на сиденья)
+21AC   Reverse Beep Query, DL1: Ena=0, Dis=64
+21A1   Key Remind Sound, DL1: Normal / Fast / Slow
+2168   Rheostat (яркость приборки), DL1: 0..255
+2141   Distance Since Oil Change (счётчик, DL0 — читается)
+2112   DL1 биты: [0] Tail Cancel SW, [1] P-Seatbelt Buckle SW, [1] Check Engine SW
+2121   Vehicle Speed Meter, DL1, raw км/ч
+2123   Coolant Temperature (приборочная), DL1: raw*0.5
+2129   Fuel Input, DL1: raw*0.5
+221022 Fuel Level, DL2: raw*0.01 (%)
+```
+
+### 11.2 `7D2` — гибридный ECU TNGA (C-HR Hybrid NGX50 2ZR-FXE, Corolla/Prius IV)
+
+```
+ATSH7D2
+2210A5  Motor Inverter temp / max / after-IG-ON (MG2), DL1: raw−40 (SBI 0/1/2)
+2210A6  Rear Motor Inverter temp (AWD), DL1: raw−40
+2210A4  Generator Inverter temp (MG1), DL1: raw−40
+2210A8  Generator Inverter temp вариант, DL1: raw−40 (SBI 0/1/2)
+2210B2  MG1 Temperature (SBI2) / Inverter Coolant Temp (MG2), DL1: raw−40
+221040  Transaxle Oil Temperature, DL1 (SBI2): raw−40   ← редкая температура редуктора
+2210A7  Boosting Converter temp (Upper/Lower), DL1: raw−40
+221802  HV Battery 1 Fan (SBI2: raw*0.5) / Aux Battery Current
+221F5B  Hybrid Battery SOC, DL1: raw*100/255
+221F9A  HV Battery Current (SBI4, DL2: raw*0.1) / Voltage (SBI2, DL1: raw*4)
+221814  HV Battery Temperature 1/2/3 (DL2: raw*0.006988632−58; DL1: raw*1.8−58)
+221F05  Coolant temperature, DL1: raw−40
+220103  Hybrid control odometer (SBI1, DL3)
+2210A1  Motor RPM (DL2, signed −32768) / Motor Torque (SBI6: raw*0.125−4096)
+221075  Wheel speeds FL/FR/RR/RL (SBI 0/2/4/6, DL2: raw*0.01−327.68)
+```
+
+### 11.3 ECM TNGA (`700`) — кандидаты для нашего 8NR-FTS (не проверено)
+
+```
+ATSH700
+2210A5  Misfire All Cylinders Counter, DL1
+2210A7  Misfire Cylinder 1, DL1
+2210AA  Misfire Load, DL1: raw*510/255        ← пропуски без Check Engine
+22105C  Knock Correct Learned Value, DL2: raw*312.5/10000 − 1024
+220103  Odometer var.1 (SBI1, DL3)            ← одометр по OBD
+221F5C  Engine Oil Temperature, DL1: raw−40
+22107B  Engine oil temperature (SBI24), DL1: raw−40
+221019  High Fuel Pressure, DL2: raw*128/65535 − 64 (МПа; рампа D-4T — свип её не давал)
+221087  Intake VVT Change Angle B1, DL2: raw*639.9/65535
+22108A  VVT-iE Duty Ratio B1, DL2: raw*399.9/65535 − 200
+221621  RES(PID_AT_CURRENT_GEAR), DL1
+221131  Cyl.#1 Injection Volume, DL2: raw*195.31/10000 − 640
+22F19D  Engine Fuel Rate, DL2: raw*0.02
+2215EE  Voltage of Battery Sensor, DL2: raw*79.998/65535
+```
+
+### 11.4 Кузов AX20 (C-HR 2-го поколения, 2026+)
+
+Профиль `Toyota_CHR_BEV_(2026-)` (440 PID): заголовки `DA62E0` (316),
+`DA5AE0` (96), `DA5BE0` (7), `750`, `7C0`; `CheckConnectionCommand=221021`.
+Это формат bZ4X/WWH-OBD: батарея по ячейкам, DC/DC, тепловые помпы, решётка
+радиатора (`2211BB` grille shutter), мотор/редуктор с крутящими моментами.
+Гибридных AX20 HEV/PHEV профилей в наборе нет — они лягут на семейство
+`ef0c18c9` (Prius/RAV4 Prime), когда появятся.
+
+### 11.5 Прочее из набора
+
+- `Vitz 2009 CVT` (K310, 1NZ-FE): `21E4` Injection pulse width `A*32.6/255` @`7E0`;
+  `21D9` там SBI 3 DL 1 — другое семейство CVT, для K114 бесполезно.
+- `Prius IV @7C4`: `21B1` Glass Humidity, `21AF` Glass Temperature (DL2: raw*0.018−557.8)
+  — для машин с обогревом лобового.
+- IZOA (китайский близнец C-HR) — профилей нет. Комплектации Koba/G-T не выделяются:
+  petrol NGX10 покрывается `JOBD JDM CAN` + generic 2016+.

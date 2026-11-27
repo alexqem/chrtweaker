@@ -65,6 +65,7 @@
     <string name="tweak_err_failed_fmt">%1$s: error (%2$s)</string>
     <string name="tweak_err_verify_fmt">%1$s: not applied (was %2$s → still %3$s, expected %4$s)</string>
     <string name="tweak_unsupported">Not supported on this vehicle</string>
+    <string name="tweak_unverified">⚠ unverified on C-HR (platform-twin candidate)</string>
     <string name="tweak_refresh">Refresh states</string>
     <string name="misfire_card_title">Misfires</string>
     <string name="misfire_card_sub">ECM 0x700 · tap for details</string>

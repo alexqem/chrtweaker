@@ -11,7 +11,8 @@
     "read_cmd": "21A7",
     "write_on_cmd": "3BA701",
     "write_off_cmd": "3BA700",
-    "requires_vlinker": true
+    "requires_vlinker": true,
+    "verified": true
   },
   {
     "id": "comfort_open_windows",
@@ -25,7 +26,8 @@
     "read_cmd": "21B2",
     "write_on_cmd": "3BB201",
     "write_off_cmd": "3BB200",
-    "requires_vlinker": true
+    "requires_vlinker": true,
+    "verified": true
   },
   {
     "id": "comfort_close_windows",
@@ -39,7 +41,8 @@
     "read_cmd": "21B3",
     "write_on_cmd": "3BB301",
     "write_off_cmd": "3BB300",
-    "requires_vlinker": true
+    "requires_vlinker": true,
+    "verified": true
   },
   {
     "id": "blink_hazards_lock",
@@ -53,7 +56,8 @@
     "read_cmd": "21A1",
     "write_on_cmd": "3BA101",
     "write_off_cmd": "3BA100",
-    "requires_vlinker": true
+    "requires_vlinker": true,
+    "verified": true
   },
   {
     "id": "beep_lock_unlock",
@@ -67,7 +71,8 @@
     "read_cmd": "21A2",
     "write_on_cmd": "3BA201",
     "write_off_cmd": "3BA200",
-    "requires_vlinker": true
+    "requires_vlinker": true,
+    "verified": true
   },
   {
     "id": "eco_indicator",
@@ -81,7 +86,8 @@
     "read_cmd": "21C1",
     "write_on_cmd": "3BC101",
     "write_off_cmd": "3BC100",
-    "requires_vlinker": true
+    "requires_vlinker": true,
+    "verified": true
   },
   {
     "id": "ac_eco_mode",
@@ -95,7 +101,8 @@
     "read_cmd": "21D1",
     "write_on_cmd": "3BD101",
     "write_off_cmd": "3BD100",
-    "requires_vlinker": true
+    "requires_vlinker": true,
+    "verified": true
   },
   {
     "id": "rear_seatbelt_chime",
@@ -109,7 +116,8 @@
     "read_cmd": "21C4",
     "write_on_cmd": "3BC401",
     "write_off_cmd": "3BC400",
-    "requires_vlinker": true
+    "requires_vlinker": true,
+    "verified": true
   },
   {
     "id": "reverse_beep_cluster",
@@ -123,7 +131,8 @@
     "read_cmd": "21AC",
     "write_on_cmd": "3BAC00",
     "write_off_cmd": "3BAC40",
-    "requires_vlinker": true
+    "requires_vlinker": true,
+    "verified": false
   },
   {
     "id": "turn_signal_3",
@@ -137,7 +146,8 @@
     "read_cmd": "21A5",
     "write_on_cmd": "3BA503",
     "write_off_cmd": null,
-    "requires_vlinker": true
+    "requires_vlinker": true,
+    "verified": true
   },
   {
     "id": "turn_signal_4",
@@ -151,7 +161,8 @@
     "read_cmd": "21A5",
     "write_on_cmd": "3BA504",
     "write_off_cmd": null,
-    "requires_vlinker": true
+    "requires_vlinker": true,
+    "verified": true
   },
   {
     "id": "turn_signal_5",
@@ -165,7 +176,8 @@
     "read_cmd": "21A5",
     "write_on_cmd": "3BA505",
     "write_off_cmd": null,
-    "requires_vlinker": true
+    "requires_vlinker": true,
+    "verified": true
   },
   {
     "id": "turn_signal_6",
@@ -179,7 +191,8 @@
     "read_cmd": "21A5",
     "write_on_cmd": "3BA506",
     "write_off_cmd": null,
-    "requires_vlinker": true
+    "requires_vlinker": true,
+    "verified": true
   },
   {
     "id": "turn_signal_7",
@@ -193,7 +206,8 @@
     "read_cmd": "21A5",
     "write_on_cmd": "3BA507",
     "write_off_cmd": null,
-    "requires_vlinker": true
+    "requires_vlinker": true,
+    "verified": true
   },
   {
     "id": "turn_signal_9",
@@ -207,7 +221,8 @@
     "read_cmd": "21A5",
     "write_on_cmd": "3BA509",
     "write_off_cmd": null,
-    "requires_vlinker": true
+    "requires_vlinker": true,
+    "verified": true
   },
   {
     "id": "turn_signal_11",
@@ -221,7 +236,8 @@
     "read_cmd": "21A5",
     "write_on_cmd": "3BA50B",
     "write_off_cmd": null,
-    "requires_vlinker": true
+    "requires_vlinker": true,
+    "verified": true
   },
   {
     "id": "abs_inspection",
@@ -236,7 +252,8 @@
     "session_cmd": "1003",
     "write_on_cmd": "31010200",
     "write_off_cmd": null,
-    "requires_vlinker": false
+    "requires_vlinker": false,
+    "verified": true
   },
   {
     "id": "atf_reset",
@@ -251,6 +268,7 @@
     "session_cmd": "1003",
     "write_on_cmd": "31010F00",
     "write_off_cmd": null,
-    "requires_vlinker": false
+    "requires_vlinker": false,
+    "verified": true
   }
 ]

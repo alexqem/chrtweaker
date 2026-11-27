@@ -27,6 +27,7 @@ class TweakSpec:
     write_off_cmd: Optional[str] = None
     requires_vlinker: bool = True
     session_cmd: Optional[str] = None
+    verified: bool = True
 
 
 def _load_tweaks() -> list[TweakSpec]:
@@ -49,6 +50,7 @@ def _load_tweaks() -> list[TweakSpec]:
             write_off_cmd=item.get("write_off_cmd"),
             requires_vlinker=bool(item.get("requires_vlinker", True)),
             session_cmd=item.get("session_cmd"),
+            verified=bool(item.get("verified", True)),
         )
         for item in raw
     ]

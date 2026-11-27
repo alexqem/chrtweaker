@@ -21,7 +21,8 @@ data class TweakSpec(
     val writeOffCmd: String? = null,
     val requiresVLinker: Boolean = true,
     val readCmd: String? = null,
-    val sessionCmd: String? = null
+    val sessionCmd: String? = null,
+    val verified: Boolean = true
 )
 
 enum class TweakError {
@@ -56,7 +57,8 @@ object EcuTweaks {
         @SerializedName("session_cmd") val sessionCmd: String? = null,
         @SerializedName("write_on_cmd") val writeOnCmd: String,
         @SerializedName("write_off_cmd") val writeOffCmd: String? = null,
-        @SerializedName("requires_vlinker") val requiresVLinker: Boolean = true
+        @SerializedName("requires_vlinker") val requiresVLinker: Boolean = true,
+        @SerializedName("verified") val verified: Boolean = true
     )
 
     @Volatile
@@ -96,7 +98,8 @@ object EcuTweaks {
                 writeOffCmd = item.writeOffCmd,
                 requiresVLinker = item.requiresVLinker,
                 readCmd = item.readCmd,
-                sessionCmd = item.sessionCmd
+                sessionCmd = item.sessionCmd,
+                verified = item.verified
             )
         }
     }

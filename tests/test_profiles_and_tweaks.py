@@ -30,6 +30,8 @@ class ProfilesAndTweaksTest(unittest.TestCase):
         rev = tweaks.TWEAK_MAP["reverse_beep_cluster"]
         self.assertEqual(rev.ecu, "0x7C0")
         self.assertEqual(rev.read_cmd, "21AC")
+        self.assertFalse(rev.verified)
+        self.assertTrue(tweaks.TWEAK_MAP["auto_fold_mirrors"].verified)
 
     def test_cvt_221627_decode(self) -> None:
         from mycar import toyota

@@ -212,12 +212,12 @@ def probe_extended_capabilities(conn, physical: bool = False, hybrid: bool = Fal
         blocks.append(("7D2", [("221F5B", "hv_soc"), ("2210A5", "mg2_inv_temp"), ("221040", "transaxle_oil_temp")]))
     try:
         for hdr, cmds in blocks:
-            if "OK" not in (conn.send(f"ATSH{hdr}") or ""):
-                continue
+            # ELM clones ack ATSH with OK even when stubbed; real check is query_raw below
+            conn.send(f"ATSH{hdr}")
             for cmd, name in cmds:
                 r = conn.query_raw(cmd)
                 if r:
-                    found[f"{hdr}:{cmd}"] = f"{name}={r.strip()}"
+                    found[f"{hdr}:{cmd}"] = f"{name} (platform-twin candidate, not verified on NGX10)={r.strip()}"
     finally:
         conn.send("ATSH7DF")
     return found

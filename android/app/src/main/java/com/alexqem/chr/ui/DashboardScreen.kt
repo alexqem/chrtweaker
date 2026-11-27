@@ -205,7 +205,7 @@ fun DashboardScreen(
                 ) {
                     Column {
                         Text(stringResource(R.string.misfire_card_title), color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                        Text(stringResource(R.string.misfire_card_sub), color = TextSecondary, fontSize = 11.sp)
+                        Text(stringResource(R.string.misfire_card_sub), color = TextSecondary, fontSize = 12.sp)
                     }
                     Text(
                         text = misfires.totalAllCylinders.toString(),
@@ -227,11 +227,11 @@ fun DashboardScreen(
                         .border(1.dp, BorderLine, RoundedCornerShape(8.dp))
                         .padding(10.dp)
                 ) {
-                    Text("ECU Probe Log", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = TextSecondary)
+                    Text("ECU Probe Log", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = TextSecondary)
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = state.capabilityLog.joinToString("\n"),
-                        fontSize = 10.sp,
+                        fontSize = 12.sp,
                         fontFamily = FontFamily.Monospace,
                         color = TextPrimary
                     )
@@ -348,7 +348,7 @@ fun DashboardScreen(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(stringResource(R.string.profile_auto_title), color = TextPrimary, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                            Text(stringResource(R.string.profile_auto_sub), color = TextSecondary, fontSize = 11.sp)
+                            Text(stringResource(R.string.profile_auto_sub), color = TextSecondary, fontSize = 12.sp)
                         }
                         if (isAuto) Icon(Icons.Default.Check, contentDescription = null, tint = AccentBlue)
                     }
@@ -368,7 +368,7 @@ fun DashboardScreen(
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(prof.shortLabel, color = TextPrimary, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                                Text(prof.label, color = TextSecondary, fontSize = 11.sp)
+                                Text(prof.label, color = TextSecondary, fontSize = 12.sp)
                             }
                             if (selected) Icon(Icons.Default.Check, contentDescription = null, tint = AccentBlue)
                         }
@@ -483,7 +483,7 @@ fun EcuTweaksTab(
             )
             if (fullAccess) {
                 TextButton(onClick = onRefreshTweaks, enabled = !isPending) {
-                    Text(stringResource(R.string.tweak_refresh), fontSize = 11.sp, color = CoolantBlue)
+                    Text(stringResource(R.string.tweak_refresh), fontSize = 12.sp, color = CoolantBlue)
                 }
             }
         }
@@ -542,7 +542,14 @@ fun EcuTweaksTab(
                         fontSize = 12.sp,
                         color = TextSecondary
                     )
-                    Text("${spec.ecu} · ${spec.protocol}", fontSize = 10.sp, fontFamily = FontFamily.Monospace, color = ChartTick)
+                    if (!spec.verified) {
+                        Text(
+                            stringResource(R.string.tweak_unverified),
+                            fontSize = 12.sp,
+                            color = WarnAmber
+                        )
+                    }
+                    Text("${spec.ecu} · ${spec.protocol}", fontSize = 12.sp, fontFamily = FontFamily.Monospace, color = ChartTick)
                 }
                 if (spec.isSwitch) {
                     Switch(
@@ -586,7 +593,7 @@ fun EcuTweaksTab(
             }
             Text(
                 text = if (tweakLogs.isEmpty()) stringResource(R.string.tweaks_log_empty) else tweakLogs.joinToString("\n"),
-                fontSize = 10.sp,
+                fontSize = 12.sp,
                 fontFamily = FontFamily.Monospace,
                 color = TextPrimary,
                 modifier = Modifier
@@ -630,7 +637,7 @@ fun HudTab(state: LiveSessionState, profile: VehicleProfile, history: List<Senso
         ) {
             Column {
                 Text(profile.shortLabel, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
-                Text(stringResource(R.string.hud_keep_screen_on), fontSize = 11.sp, color = TextSecondary)
+                Text(stringResource(R.string.hud_keep_screen_on), fontSize = 12.sp, color = TextSecondary)
             }
             Button(
                 onClick = { isMirrored = !isMirrored },
@@ -895,7 +902,7 @@ fun StatCard(
                 }
             }
             Spacer(modifier = Modifier.height(2.dp))
-            Text(sub, color = TextSecondary, fontSize = 10.sp)
+            Text(sub, color = TextSecondary, fontSize = 12.sp)
         }
     }
 }
@@ -1080,7 +1087,7 @@ fun SessionsHistoryTab(
                         Text(
                             text = stringResource(R.string.history_row_sub_fmt, session.mode, coolantStr, session.rows, warmStr),
                             color = TextSecondary,
-                            fontSize = 11.sp
+                            fontSize = 12.sp
                         )
                     }
                     IconButton(onClick = { onShareSession(session) }) {

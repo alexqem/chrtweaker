@@ -111,11 +111,11 @@ object ElmProtocol {
                     if (reply != null) {
                         val compact = ElmParser.tokenize(reply).joinToString(" ")
                         supported["$header:$cmd"] = compact
-                        val line = "OK $header $cmd ($name): $compact"
+                        val line = "OK $header $cmd ($name, platform-twin candidate, not verified on NGX10): $compact"
                         Log.i("ChrProbe", line)
                         logs.add(line)
                     } else {
-                        Log.i("ChrProbe", "SILENT $header $cmd ($name)")
+                        Log.i("ChrProbe", "SILENT $header $cmd ($name, platform-twin candidate)")
                     }
                 }
             } catch (e: Exception) {

@@ -755,7 +755,8 @@ async function loadTweaks() {
       card.className = 'tweak-card';
       if (!isSup) card.style.opacity = '0.45';
       const desc = isSup ? t.description : 'Не поддерживается на этом авто';
-      const info = `<div><div class="tweak-title">${t.title}</div><div class="tweak-desc">${desc}</div><div class="tweak-meta">${t.ecu} · ${t.protocol}</div></div>`;
+      const warnBadge = t.verified === false ? `<div style="color:#f59e0b;font-size:12px;margin-top:2px;">⚠ не проверено на C-HR</div>` : '';
+      const info = `<div><div class="tweak-title">${t.title}</div><div class="tweak-desc">${desc}</div>${warnBadge}<div class="tweak-meta">${t.ecu} · ${t.protocol}</div></div>`;
       const ctrl = t.kind === 'switch'
         ? `<label class="switch"><input type="checkbox" ${isChecked ? 'checked' : ''} ${isSup ? '' : 'disabled'} onchange="runTweak('${t.id}', this.checked)"><span class="slider"></span></label>`
         : `<button class="tweak-btn" ${isSup ? '' : 'disabled'} onclick="runTweak('${t.id}', true)">Execute</button>`;
