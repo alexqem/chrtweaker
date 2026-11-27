@@ -10,6 +10,7 @@ import android.os.IBinder
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.alexqem.chr.ChrApp
+import com.alexqem.chr.R
 import com.alexqem.chr.core.ble.BleScanner
 import com.alexqem.chr.core.ble.DiscoveredBleDevice
 import com.alexqem.chr.core.database.LtftTrendCalculator
@@ -273,7 +274,8 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun runTweak(spec: com.alexqem.chr.core.tweaks.TweakSpec, enabled: Boolean) {
         if (_tweakStatus.value is TweakUiState.Pending) return
-        _tweakStatus.value = TweakUiState.Pending("Применение: ${spec.title}...")
+        val app = getApplication<Application>()
+        _tweakStatus.value = TweakUiState.Pending(app.getString(R.string.tweak_applying, spec.title))
         val prev = _tweakStates.value[spec.id] ?: false
         if (spec.isSwitch) {
             _tweakStates.value = _tweakStates.value + (spec.id to enabled)
@@ -286,7 +288,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                 isSim = _useSimulator.value,
                 sendFn = { cmd ->
                     val svc = loggingServiceRef?.get()
-                        ?: throw IllegalStateException("Сервис логирования не подключён")
+                        ?: throw IllegalStateException(app.getString(R.string.tweak_service_not_bound))
                     svc.sendRawCommand(cmd)
                 }
             )

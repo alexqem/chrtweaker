@@ -56,4 +56,6 @@
     <string name="card_voltage_sub">alternator</string>
     <string name="history_warm_fmt"> · warm %1$.0fs</string>
     <string name="history_row_sub_fmt">%1$s · start %2$s · rows: %3$d%4$s</string>
+    <string name="tweak_applying">Applying: %1$s…</string>
+    <string name="tweak_service_not_bound">Logging service is not connected</string>
 </resources>

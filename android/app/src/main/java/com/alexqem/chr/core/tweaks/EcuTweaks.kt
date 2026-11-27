@@ -1,6 +1,7 @@
 package com.alexqem.chr.core.tweaks
 
 import android.content.Context
+import android.util.Log
 import com.alexqem.chr.core.elm.ElmParser
 import com.google.gson.Gson
 import com.google.gson.annotations.SerializedName
@@ -35,7 +36,9 @@ object EcuTweaks {
     private data class TweakJsonItem(
         @SerializedName("id") val id: String,
         @SerializedName("title") val title: String,
+        @SerializedName("title_en") val titleEn: String? = null,
         @SerializedName("description") val description: String,
+        @SerializedName("description_en") val descriptionEn: String? = null,
         @SerializedName("ecu") val ecu: String,
         @SerializedName("protocol") val protocol: String,
         @SerializedName("kind") val kind: String,
@@ -46,49 +49,36 @@ object EcuTweaks {
         @SerializedName("requires_vlinker") val requiresVLinker: Boolean = true
     )
 
-    private val fallbackTweaks: List<TweakSpec> = listOf(
-        TweakSpec("auto_fold_mirrors", "Автоскладывание зеркал", "Зеркала сами складываются при закрытии машины", "0x750", "ISO 15765-4 CAN (ATSP6) · KWP 21/3B", true, "3BA701", "3BA700", true, "21A7"),
-        TweakSpec("comfort_open_windows", "Открыть окна с ключа", "Удерживайте кнопку открытия на брелоке, чтобы опустить все стёкла", "0x750", "ISO 15765-4 CAN (ATSP6) · KWP 21/3B", true, "3BB201", "3BB200", true, "21B2"),
-        TweakSpec("comfort_close_windows", "Закрыть окна с ключа", "Удерживайте кнопку закрытия на брелоке, чтобы поднять все стёкла", "0x750", "ISO 15765-4 CAN (ATSP6) · KWP 21/3B", true, "3BB301", "3BB300", true, "21B3"),
-        TweakSpec("blink_hazards_lock", "Мигание при закрытии", "Аварийка мигает, когда вы закрываете или открываете машину", "0x750", "ISO 15765-4 CAN (ATSP6) · KWP 21/3B", true, "3BA101", "3BA100", true, "21A1"),
-        TweakSpec("beep_lock_unlock", "Звук при закрытии", "Короткий писк при постановке на охрану и снятии с неё", "0x750", "ISO 15765-4 CAN (ATSP6) · KWP 21/3B", true, "3BA201", "3BA200", true, "21A2"),
-        TweakSpec("eco_indicator", "Подсказка ECO на приборке", "Показывает зелёный значок ECO при экономной езде", "0x7C0", "ISO 15765-4 CAN (ATSP6) · KWP 21/3B", true, "3BC101", "3BC100", true, "21C1"),
-        TweakSpec("ac_eco_mode", "Эко-режим кондиционера", "Кондиционер работает мягче, чтобы экономить топливо", "0x7C4", "ISO 15765-4 CAN (ATSP6) · KWP 21/3B", true, "3BD101", "3BD100", true, "21D1"),
-        TweakSpec("rear_seatbelt_chime", "Пищалка задних ремней", "Звуковое напоминание, если сзади не пристегнулись", "0x7C0", "ISO 15765-4 CAN (ATSP6) · KWP 21/3B", true, "3BC401", "3BC400", true, "21C4"),
-        TweakSpec("turn_signal_3", "Поворотник: 3 мигания", "Заводской режим при лёгком касании рычага", "0x750", "ISO 15765-4 CAN (ATSP6) · KWP 3B", false, "3BA503", null, true, "21A5"),
-        TweakSpec("turn_signal_4", "Поворотник: 4 мигания", "4 мигания при лёгком касании рычага", "0x750", "ISO 15765-4 CAN (ATSP6) · KWP 3B", false, "3BA504", null, true, "21A5"),
-        TweakSpec("turn_signal_5", "Поворотник: 5 миганий", "Удобно для перестроения в городе — мигает 5 раз", "0x750", "ISO 15765-4 CAN (ATSP6) · KWP 3B", false, "3BA505", null, true, "21A5"),
-        TweakSpec("turn_signal_6", "Поворотник: 6 миганий", "6 миганий при лёгком касании рычага", "0x750", "ISO 15765-4 CAN (ATSP6) · KWP 3B", false, "3BA506", null, true, "21A5"),
-        TweakSpec("turn_signal_7", "Поворотник: 7 миганий", "Увеличенное время сигнала при перестроении", "0x750", "ISO 15765-4 CAN (ATSP6) · KWP 3B", false, "3BA507", null, true, "21A5"),
-        TweakSpec("turn_signal_9", "Поворотник: 9 миганий", "9 миганий при лёгком касании рычага", "0x750", "ISO 15765-4 CAN (ATSP6) · KWP 3B", false, "3BA509", null, true, "21A5"),
-        TweakSpec("turn_signal_11", "Поворотник: 11 миганий", "Максимум (11 миганий) при лёгком касании рычага", "0x750", "ISO 15765-4 CAN (ATSP6) · KWP 3B", false, "3BA50B", null, true, "21A5"),
-        TweakSpec("abs_inspection", "Сервисный режим ABS", "Только для СТО: проверка тормозов и ABS на стенде", "0x7B0", "ISO 15765-4 CAN (ATSP6) · UDS 10 03", false, "31010200", null, false, null, "1003"),
-        TweakSpec("atf_reset", "Сброс счётчика масла CVT", "Нажимать только после замены масла в вариаторе", "0x7E1", "ISO 15765-4 CAN (ATSP6) · UDS 31 01", false, "31010F00", null, false, null, "1003")
-    )
-
     @Volatile
-    var ALL: List<TweakSpec> = fallbackTweaks
+    var ALL: List<TweakSpec> = emptyList()
         private set
 
     fun loadFromAssets(context: Context) {
         runCatching {
             context.assets.open("tweaks.json").bufferedReader(Charsets.UTF_8).use { reader ->
-                val parsed = parseJson(reader.readText())
-                if (parsed.isNotEmpty()) {
-                    ALL = parsed
-                }
+                loadFromJson(reader.readText())
             }
+        }.onFailure { err ->
+            Log.e("EcuTweaks", "tweaks.json missing or unparsable — packaging bug", err)
         }
     }
 
-    fun parseJson(json: String): List<TweakSpec> {
+    fun loadFromJson(json: String, locale: Locale = Locale.getDefault()) {
+        val parsed = parseJson(json, locale)
+        if (parsed.isNotEmpty()) {
+            ALL = parsed
+        }
+    }
+
+    fun parseJson(json: String, locale: Locale = Locale.getDefault()): List<TweakSpec> {
+        val useEn = locale.language.equals("en", ignoreCase = true)
         val listType = object : TypeToken<List<TweakJsonItem>>() {}.type
         val items: List<TweakJsonItem> = Gson().fromJson(json, listType) ?: return emptyList()
         return items.map { item ->
             TweakSpec(
                 id = item.id,
-                title = item.title,
-                description = item.description,
+                title = if (useEn && !item.titleEn.isNullOrBlank()) item.titleEn else item.title,
+                description = if (useEn && !item.descriptionEn.isNullOrBlank()) item.descriptionEn else item.description,
                 ecu = item.ecu,
                 protocol = item.protocol,
                 isSwitch = item.kind == "switch",

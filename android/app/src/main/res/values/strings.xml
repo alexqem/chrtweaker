@@ -56,4 +56,6 @@
     <string name="card_voltage_sub">генератор</string>
     <string name="history_warm_fmt"> · прогрев %1$.0fс</string>
     <string name="history_row_sub_fmt">%1$s · старт %2$s · строк: %3$d%4$s</string>
+    <string name="tweak_applying">Применение: %1$s…</string>
+    <string name="tweak_service_not_bound">Сервис логирования не подключён</string>
 </resources>

@@ -4,9 +4,29 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Test
+import java.io.File
+import java.util.Locale
 
 class EcuTweaksTest {
+
+    @Before
+    fun loadTweaksFromSharedAssets() {
+        val jsonFile = File("src/main/assets/tweaks.json").takeIf { it.exists() }
+            ?: File("app/src/main/assets/tweaks.json")
+        EcuTweaks.loadFromJson(jsonFile.readText(Charsets.UTF_8), Locale("ru"))
+    }
+
+    @Test
+    fun parseJson_supportsEnglishTitleAndDescription() {
+        val jsonFile = File("src/main/assets/tweaks.json").takeIf { it.exists() }
+            ?: File("app/src/main/assets/tweaks.json")
+        val enTweaks = EcuTweaks.parseJson(jsonFile.readText(Charsets.UTF_8), Locale.ENGLISH)
+        assertEquals(17, enTweaks.size)
+        val mirrors = enTweaks.first { it.id == "auto_fold_mirrors" }
+        assertEquals("Auto-fold mirrors", mirrors.title)
+    }
 
     @Test
     fun parseReadByte_handlesSpacedAndCompactReplies() {
