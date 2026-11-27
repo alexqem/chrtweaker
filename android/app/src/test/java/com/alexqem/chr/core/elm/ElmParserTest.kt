@@ -42,4 +42,11 @@ class ElmParserTest {
         assertTrue(ElmParser.isNegative("?"))
         assertFalse(ElmParser.isNegative("41 05 7B"))
     }
+
+    @Test
+    fun parseUdsMisfireValue_handlesSingleAndTwoBytePayloads() {
+        assertEquals(3, ElmProtocol.parseUdsMisfireValue("708 04 62 10 A5 03", "10", "A5"))
+        assertEquals(258, ElmProtocol.parseUdsMisfireValue("62 10 A5 01 02", "10", "A5"))
+        assertNull(ElmProtocol.parseUdsMisfireValue("7F 22 31", "10", "A5"))
+    }
 }

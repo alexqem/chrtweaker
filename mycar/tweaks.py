@@ -89,13 +89,23 @@ def _parse_read_byte(read_cmd: str, raw_reply: str) -> Optional[str]:
     return None
 
 
-def read_all_switches(elm_send_fn: Optional[Callable[[str], str]] = None) -> dict:
+def read_all_switches(
+    elm_send_fn: Optional[Callable[[str], str]] = None,
+    is_sim: bool = False,
+) -> dict:
     """Read current ON/OFF state and ECU support for all switch tweaks."""
     states: dict[str, bool] = {}
     supported: dict[str, bool] = {}
     logs: list[str] = []
     ts = datetime.now().strftime("%H:%M:%S")
     switches = [t for t in TWEAKS if t.kind == "switch" and t.read_cmd]
+    if is_sim:
+        for spec in switches:
+            supported[spec.id] = True
+            states[spec.id] = spec.id in ("auto_fold_mirrors", "eco_indicator")
+        logs.append(f"[{ts}] SIM | READ_ALL switches={len(switches)}")
+        return {"states": states, "supported": supported, "logs": logs}
+
     if elm_send_fn is None:
         return {"states": states, "supported": supported, "logs": [f"[{ts}] OFFLINE | no ELM connection"]}
 

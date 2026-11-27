@@ -200,24 +200,27 @@ def probe_cvt(conn, physical: bool = False) -> tuple[float | None, str | None]:
 
 
 def probe_extended_capabilities(conn, physical: bool = False, hybrid: bool = False) -> dict[str, str]:
-    """Probe 0x7C0 (cluster), 0x700 (ECM UDS), and 0x7D2 (hybrid ECU) when physical ATSH works."""
+    """Probe extended ECU PIDs from shared profiles.json when physical ATSH works."""
     if not physical:
         return {}
+    from mycar import config
+
     found: dict[str, str] = {}
-    blocks = [
-        ("7C0", [("21A7", "seatbelt_bitmap"), ("21AC", "reverse_beep"), ("2168", "cluster_brightness")]),
-        ("700", [("2210A5", "misfire_all"), ("22105C", "knock_learn"), ("221F5C", "oil_temp_uds"), ("221019", "rail_p_uds")]),
-    ]
-    if hybrid:
-        blocks.append(("7D2", [("221F5B", "hv_soc"), ("2210A5", "mg2_inv_temp"), ("221040", "transaxle_oil_temp")]))
+    by_hdr: dict[str, list[dict]] = {}
+    for p in config.EXTENDED_PROBES:
+        if p.get("hybrid_only") and not hybrid:
+            continue
+        by_hdr.setdefault(p["header"], []).append(p)
+
     try:
-        for hdr, cmds in blocks:
+        for hdr, probes in by_hdr.items():
             # ELM clones ack ATSH with OK even when stubbed; real check is query_raw below
             conn.send(f"ATSH{hdr}")
-            for cmd, name in cmds:
-                r = conn.query_raw(cmd)
+            for p in probes:
+                note = "verified" if p.get("verified") else "platform-twin candidate, not verified on NGX10"
+                r = conn.query_raw(p["cmd"])
                 if r:
-                    found[f"{hdr}:{cmd}"] = f"{name} (platform-twin candidate, not verified on NGX10)={r.strip()}"
+                    found[f"{hdr}:{p['cmd']}"] = f"{p['name']} ({note})={r.strip()}"
     finally:
         conn.send("ATSH7DF")
     return found

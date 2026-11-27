@@ -65,4 +65,13 @@ class VehicleProfileTest {
         val verifiedIds = VehicleProfileRegistry.all().filter { it.verified }.map { it.id }
         assertEquals(listOf("8nrfts"), verifiedIds)
     }
+
+    @Test
+    fun parseExtendedProbes_loads21ProbesFromSharedAssets() {
+        val file = java.io.File("src/main/assets/profiles.json").takeIf { it.exists() }
+            ?: java.io.File("app/src/main/assets/profiles.json")
+        val probes = VehicleProfileRegistry.parseExtendedProbes(file.readText(Charsets.UTF_8))
+        assertEquals(21, probes.size)
+        assertTrue(probes.all { !it.verified })
+    }
 }

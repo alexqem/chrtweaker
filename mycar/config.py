@@ -57,8 +57,8 @@ CAR = {
 #   * ECU tweaks — verified on NGX10 only (docs/ECU_TWEAKS.md).
 # Select: MYCAR_PROFILE in .env, `capture --profile NAME`, or analyze/db pick
 # the profile up from the session's meta.json.
-def _load_profiles_and_norms() -> tuple[dict, dict]:
-    """Load vehicle profiles and base norms from shared Android assets JSON."""
+def _load_profiles_and_norms() -> tuple[dict, dict, list[dict]]:
+    """Load vehicle profiles, base norms, and extended probes from shared Android assets JSON."""
     profiles_path = ASSETS_DIR / "profiles.json"
     if not profiles_path.exists():
         raise FileNotFoundError(
@@ -69,6 +69,7 @@ def _load_profiles_and_norms() -> tuple[dict, dict]:
         k: (tuple(v) if isinstance(v, list) else v)
         for k, v in raw["base_norms"].items()
     }
+    extended_probes = list(raw.get("extended_probes", []))
     profiles = {}
     for p in raw["profiles"]:
         pid = p["id"]
@@ -86,10 +87,10 @@ def _load_profiles_and_norms() -> tuple[dict, dict]:
                 for k, v in p.get("norms", {}).items()
             },
         }
-    return profiles, base_norms
+    return profiles, base_norms, extended_probes
 
 
-PROFILES, NORMS = _load_profiles_and_norms()
+PROFILES, NORMS, EXTENDED_PROBES = _load_profiles_and_norms()
 PROFILE_NAME = (os.environ.get("MYCAR_PROFILE") or "8nrfts").strip().lower()
 PROFILE = PROFILES.get(PROFILE_NAME)
 if PROFILE is None:

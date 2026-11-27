@@ -22,13 +22,30 @@ data class VehicleProfile(
     val thermostatMaxC: Double = VehicleConstants.THERMOSTAT_OPEN_MAX_C
 )
 
+data class ExtendedProbeSpec(
+    val header: String,
+    val cmd: String,
+    val name: String,
+    val verified: Boolean = false,
+    val hybridOnly: Boolean = false
+)
+
 object VehicleProfileRegistry {
     const val AUTO_PROFILE_ID = "auto"
     const val DEFAULT_PROFILE_ID = "8nrfts"
 
     private data class ProfilesJsonRoot(
         @SerializedName("base_norms") val baseNorms: Map<String, Any>? = null,
+        @SerializedName("extended_probes") val extendedProbes: List<ExtendedProbeJsonItem> = emptyList(),
         @SerializedName("profiles") val profiles: List<ProfileJsonItem> = emptyList()
+    )
+
+    private data class ExtendedProbeJsonItem(
+        @SerializedName("header") val header: String,
+        @SerializedName("cmd") val cmd: String,
+        @SerializedName("name") val name: String,
+        @SerializedName("verified") val verified: Boolean = false,
+        @SerializedName("hybrid_only") val hybridOnly: Boolean = false
     )
 
     private data class ProfileJsonItem(
@@ -106,14 +123,37 @@ object VehicleProfileRegistry {
     @Volatile
     private var cachedProfiles: List<VehicleProfile> = fallbackProfiles
 
+    @Volatile
+    private var cachedProbes: List<ExtendedProbeSpec> = emptyList()
+
+    fun extendedProbes(): List<ExtendedProbeSpec> = cachedProbes
+
     fun loadFromAssets(context: Context) {
         runCatching {
             context.assets.open("profiles.json").bufferedReader(Charsets.UTF_8).use { reader ->
-                val parsed = parseJson(reader.readText())
+                val text = reader.readText()
+                val parsed = parseJson(text)
                 if (parsed.isNotEmpty()) {
                     cachedProfiles = parsed
                 }
+                val probes = parseExtendedProbes(text)
+                if (probes.isNotEmpty()) {
+                    cachedProbes = probes
+                }
             }
+        }
+    }
+
+    fun parseExtendedProbes(json: String): List<ExtendedProbeSpec> {
+        val root = Gson().fromJson(json, ProfilesJsonRoot::class.java) ?: return emptyList()
+        return root.extendedProbes.map {
+            ExtendedProbeSpec(
+                header = it.header,
+                cmd = it.cmd,
+                name = it.name,
+                verified = it.verified,
+                hybridOnly = it.hybridOnly
+            )
         }
     }
 

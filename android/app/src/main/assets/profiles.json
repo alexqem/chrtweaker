@@ -14,6 +14,29 @@
     "cold_start_max_c": 40.0,
     "warm_target_c": 80.0
   },
+  "extended_probes": [
+    {"header": "7C0", "cmd": "21A7", "name": "seatbelt_bitmap", "verified": false, "hybrid_only": false},
+    {"header": "7C0", "cmd": "21AC", "name": "reverse_beep", "verified": false, "hybrid_only": false},
+    {"header": "7C0", "cmd": "2168", "name": "cluster_brightness", "verified": false, "hybrid_only": false},
+    {"header": "700", "cmd": "2210A5", "name": "misfire_all", "verified": false, "hybrid_only": false},
+    {"header": "700", "cmd": "22105C", "name": "knock_learn", "verified": false, "hybrid_only": false},
+    {"header": "700", "cmd": "221F5C", "name": "oil_temp_uds", "verified": false, "hybrid_only": false},
+    {"header": "700", "cmd": "221019", "name": "rail_p_uds", "verified": false, "hybrid_only": false},
+    {"header": "700", "cmd": "221087", "name": "vvt_angle", "verified": false, "hybrid_only": false},
+    {"header": "700", "cmd": "22108A", "name": "vvte_duty", "verified": false, "hybrid_only": false},
+    {"header": "700", "cmd": "22F19D", "name": "fuel_rate", "verified": false, "hybrid_only": false},
+    {"header": "700", "cmd": "220103", "name": "obd_odometer", "verified": false, "hybrid_only": false},
+    {"header": "700", "cmd": "221131", "name": "inj_cyl1", "verified": false, "hybrid_only": false},
+    {"header": "7D2", "cmd": "221F5B", "name": "hv_soc", "verified": false, "hybrid_only": true},
+    {"header": "7D2", "cmd": "2210A5", "name": "mg2_inv_temp", "verified": false, "hybrid_only": true},
+    {"header": "7D2", "cmd": "2210A4", "name": "mg1_inv_temp", "verified": false, "hybrid_only": true},
+    {"header": "7D2", "cmd": "2210B2", "name": "mg_coolant_temp", "verified": false, "hybrid_only": true},
+    {"header": "7D2", "cmd": "221040", "name": "transaxle_oil_temp", "verified": false, "hybrid_only": true},
+    {"header": "7D2", "cmd": "2210A7", "name": "boost_conv_temp", "verified": false, "hybrid_only": true},
+    {"header": "7D2", "cmd": "221F9A", "name": "hv_batt_iv", "verified": false, "hybrid_only": true},
+    {"header": "7D2", "cmd": "221814", "name": "hv_batt_temps", "verified": false, "hybrid_only": true},
+    {"header": "7D2", "cmd": "221802", "name": "hv_fan", "verified": false, "hybrid_only": true}
+  ],
   "profiles": [
     {
       "id": "8nrfts",

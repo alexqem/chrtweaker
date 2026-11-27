@@ -58,6 +58,17 @@ class ProfilesAndTweaksTest(unittest.TestCase):
         self.assertFalse(res["supported"]["reverse_beep_cluster"])
         self.assertFalse(res["states"]["blink_hazards_lock"])
 
+    def test_read_all_switches_sim_branch(self) -> None:
+        res = tweaks.read_all_switches(is_sim=True)
+        self.assertEqual(len(res["supported"]), 9)
+        self.assertTrue(all(res["supported"].values()))
+        self.assertTrue(res["states"]["auto_fold_mirrors"])
+        self.assertIn("SIM | READ_ALL", res["logs"][0])
+
+    def test_extended_probes_loaded_from_profiles_json(self) -> None:
+        self.assertEqual(len(config.EXTENDED_PROBES), 21)
+        self.assertTrue(all(not p["verified"] for p in config.EXTENDED_PROBES))
+
 
 if __name__ == "__main__":
     unittest.main()

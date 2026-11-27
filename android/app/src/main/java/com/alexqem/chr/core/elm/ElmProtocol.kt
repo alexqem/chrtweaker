@@ -3,6 +3,7 @@ package com.alexqem.chr.core.elm
 import android.util.Log
 import com.alexqem.chr.core.common.ElmConstants
 import com.alexqem.chr.core.model.CarIdentity
+import com.alexqem.chr.core.model.VehicleProfileRegistry
 import com.alexqem.chr.core.sensors.PidSpec
 import com.alexqem.chr.core.sensors.Sensors
 
@@ -103,47 +104,34 @@ object ElmProtocol {
         val supported = linkedMapOf<String, String>()
         val logs = mutableListOf<String>()
 
-        suspend fun probeBlock(header: String, label: String, cmds: List<Pair<String, String>>) {
+        val probesByHeader = VehicleProfileRegistry.extendedProbes()
+            .filter { !it.hybridOnly || hybridProfile }
+            .groupBy { it.header }
+
+        for ((header, cmds) in probesByHeader) {
             try {
                 conn.send("ATSH $header", timeoutMs = ElmConstants.TIMEOUT_QUICK_MS)
-                for ((cmd, name) in cmds) {
-                    val reply = queryRaw(conn, cmd, timeoutMs = ElmConstants.TIMEOUT_QUICK_MS)
+                for (probe in cmds) {
+                    val note = if (probe.verified) "verified" else "platform-twin candidate, not verified on NGX10"
+                    val reply = queryRaw(conn, probe.cmd, timeoutMs = ElmConstants.TIMEOUT_QUICK_MS)
                     if (reply != null) {
                         val compact = ElmParser.tokenize(reply).joinToString(" ")
-                        supported["$header:$cmd"] = compact
-                        val line = "OK $header $cmd ($name, platform-twin candidate, not verified on NGX10): $compact"
+                        supported["$header:${probe.cmd}"] = compact
+                        val line = "OK $header ${probe.cmd} (${probe.name}, $note): $compact"
                         Log.i("ChrProbe", line)
                         logs.add(line)
                     } else {
-                        Log.i("ChrProbe", "SILENT $header $cmd ($name, platform-twin candidate)")
+                        Log.i("ChrProbe", "SILENT $header ${probe.cmd} (${probe.name}, $note)")
                     }
                 }
             } catch (e: Exception) {
-                Log.w("ChrProbe", "Error probing $label ($header): ${e.message}")
+                Log.w("ChrProbe", "Error probing $header: ${e.message}")
             } finally {
                 runCatching { conn.send("ATSH 7DF", timeoutMs = ElmConstants.TIMEOUT_QUICK_MS) }
             }
         }
-
-        probeBlock(
-            "7C0",
-            "Cluster",
-            listOf("21A7" to "seatbelt_bitmap", "21AC" to "reverse_beep", "2168" to "cluster_brightness")
-        )
-        probeBlock(
-            "700",
-            "ECM UDS",
-            listOf("2210A5" to "misfire_all", "22105C" to "knock_learn", "221F5C" to "oil_temp_uds", "221019" to "rail_p_uds")
-        )
-        if (hybridProfile) {
-            probeBlock(
-                "7D2",
-                "Hybrid ECU",
-                listOf("221F5B" to "hv_soc", "2210A5" to "mg2_inv_temp", "221040" to "transaxle_oil_temp")
-            )
-        }
         if (logs.isEmpty()) {
-            logs.add("Extended ECU probe (7C0/700): no extra PIDs answered")
+            logs.add("Extended ECU probe: no extra PIDs answered")
         }
         return CapabilityProbeResult(supported, logs)
     }
@@ -154,26 +142,28 @@ object ElmProtocol {
         val underLoad: Int? = null
     )
 
-    suspend fun readMisfireStats(conn: ElmConnection): MisfireStats? {
-        fun parseU16(raw: String?, pidHi: String, pidLo: String): Int? {
-            if (raw.isNullOrBlank()) return null
-            val tokens = ElmParser.tokenize(raw)
-            val idx = tokens.indexOfFirst { it.equals("62", ignoreCase = true) }
-            if (idx == -1 || idx + 4 >= tokens.size) return null
-            if (!tokens[idx + 1].equals(pidHi, ignoreCase = true) ||
-                !tokens[idx + 2].equals(pidLo, ignoreCase = true)
-            ) return null
-            val a = tokens[idx + 3].toIntOrNull(16) ?: return null
-            val b = tokens[idx + 4].toIntOrNull(16) ?: return null
-            return (a shl 8) or b
-        }
+    fun parseUdsMisfireValue(raw: String?, pidHi: String, pidLo: String): Int? {
+        if (raw.isNullOrBlank()) return null
+        val tokens = ElmParser.tokenize(raw)
+        val idx = tokens.indexOfFirst { it.equals("62", ignoreCase = true) }
+        if (idx == -1 || idx + 3 >= tokens.size) return null
+        if (!tokens[idx + 1].equals(pidHi, ignoreCase = true) ||
+            !tokens[idx + 2].equals(pidLo, ignoreCase = true)
+        ) return null
+        val a = tokens[idx + 3].toIntOrNull(16) ?: return null
+        val b = if (idx + 4 < tokens.size && tokens[idx + 4].length == 2) {
+            tokens[idx + 4].toIntOrNull(16)
+        } else null
+        return if (b != null) (a shl 8) or b else a
+    }
 
+    suspend fun readMisfireStats(conn: ElmConnection): MisfireStats? {
         return try {
             conn.send("ATSH 700", timeoutMs = ElmConstants.TIMEOUT_QUICK_MS)
             val allRaw = queryRaw(conn, "2210A5", timeoutMs = ElmConstants.TIMEOUT_QUICK_MS)
-            val allVal = parseU16(allRaw, "10", "A5") ?: return null
-            val c1Val = parseU16(queryRaw(conn, "2210A7", timeoutMs = ElmConstants.TIMEOUT_QUICK_MS), "10", "A7")
-            val loadVal = parseU16(queryRaw(conn, "2210AA", timeoutMs = ElmConstants.TIMEOUT_QUICK_MS), "10", "AA")
+            val allVal = parseUdsMisfireValue(allRaw, "10", "A5") ?: return null
+            val c1Val = parseUdsMisfireValue(queryRaw(conn, "2210A7", timeoutMs = ElmConstants.TIMEOUT_QUICK_MS), "10", "A7")
+            val loadVal = parseUdsMisfireValue(queryRaw(conn, "2210AA", timeoutMs = ElmConstants.TIMEOUT_QUICK_MS), "10", "AA")
             MisfireStats(totalAllCylinders = allVal, cyl1 = c1Val, underLoad = loadVal)
         } catch (_: Exception) {
             null
