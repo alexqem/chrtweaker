@@ -24,19 +24,19 @@ data class TweakResult(
 
 object CaristaTweaks {
     val ALL: List<TweakSpec> = listOf(
-        TweakSpec("auto_fold_mirrors", "Auto-Fold Mirrors", "Складывание зеркал при закрытии (0x750)", "0x750", "ISO 15765-4 CAN (ATSP6) · KWP 21/3B", true, "3BA701", "3BA700"),
-        TweakSpec("comfort_open_windows", "Remote Window Open", "Открытие окон удержанием Unlock (0x750)", "0x750", "ISO 15765-4 CAN (ATSP6) · KWP 21/3B", true, "3BB201", "3BB200"),
-        TweakSpec("comfort_close_windows", "Remote Window Close", "Закрытие окон удержанием Lock (0x750)", "0x750", "ISO 15765-4 CAN (ATSP6) · KWP 21/3B", true, "3BB301", "3BB300"),
-        TweakSpec("blink_hazards_lock", "Blink Hazards on Lock", "Моргание аварийкой при закрытии (0x750)", "0x750", "ISO 15765-4 CAN (ATSP6) · KWP 21/3B", true, "3BA101", "3BA100"),
-        TweakSpec("beep_lock_unlock", "Beep on Lock/Unlock", "Звуковой сигнал зуммера (0x750)", "0x750", "ISO 15765-4 CAN (ATSP6) · KWP 21/3B", true, "3BA201", "3BA200"),
-        TweakSpec("eco_indicator", "Eco Drive Indicator", "Индикатор Eco Drive на приборке (0x7C0)", "0x7C0", "ISO 15765-4 CAN (ATSP6) · KWP 21/3B", true, "3BC101", "3BC100"),
-        TweakSpec("ac_eco_mode", "A/C Eco Mode", "Эко-режим климат-контроля (0x7C4)", "0x7C4", "ISO 15765-4 CAN (ATSP6) · KWP 21/3B", true, "3BD101", "3BD100"),
-        TweakSpec("rear_seatbelt_chime", "Rear Seatbelt Chime", "Пищалка задних ремней (0x7C0)", "0x7C0", "ISO 15765-4 CAN (ATSP6) · KWP 21/3B", true, "3BC401", "3BC400"),
-        TweakSpec("turn_signal_3", "Turn Signal: 3 Flashes", "Заводские 3 мигания поворотника (0x750)", "0x750", "ISO 15765-4 CAN (ATSP6) · KWP 3B", false, "3BA503"),
-        TweakSpec("turn_signal_5", "Turn Signal: 5 Flashes", "5 миганий поворотника (0x750)", "0x750", "ISO 15765-4 CAN (ATSP6) · KWP 3B", false, "3BA505"),
-        TweakSpec("turn_signal_7", "Turn Signal: 7 Flashes", "7 миганий поворотника (0x750)", "0x750", "ISO 15765-4 CAN (ATSP6) · KWP 3B", false, "3BA507"),
-        TweakSpec("abs_inspection", "ABS Inspection Mode", "Сервисный режим ABS/VSC (0x7B0)", "0x7B0", "ISO 15765-4 CAN (ATSP6) · UDS 10 03", false, "31010200", requiresVLinker = false),
-        TweakSpec("atf_reset", "CVT / ATF Thermal Reset", "Сброс деградации масла CVT K114 (0x7E1)", "0x7E1", "ISO 15765-4 CAN (ATSP6) · UDS 31 01", false, "31010F00", requiresVLinker = false)
+        TweakSpec("auto_fold_mirrors", "Автоскладывание зеркал", "Зеркала сами складываются при закрытии машины", "0x750", "ISO 15765-4 CAN (ATSP6) · KWP 21/3B", true, "3BA701", "3BA700"),
+        TweakSpec("comfort_open_windows", "Открыть окна с ключа", "Удерживайте кнопку открытия на брелоке, чтобы опустить все стёкла", "0x750", "ISO 15765-4 CAN (ATSP6) · KWP 21/3B", true, "3BB201", "3BB200"),
+        TweakSpec("comfort_close_windows", "Закрыть окна с ключа", "Удерживайте кнопку закрытия на брелоке, чтобы поднять все стёкла", "0x750", "ISO 15765-4 CAN (ATSP6) · KWP 21/3B", true, "3BB301", "3BB300"),
+        TweakSpec("blink_hazards_lock", "Мигание при закрытии", "Аварийка мигает, когда вы закрываете или открываете машину", "0x750", "ISO 15765-4 CAN (ATSP6) · KWP 21/3B", true, "3BA101", "3BA100"),
+        TweakSpec("beep_lock_unlock", "Звук при закрытии", "Короткий писк при постановке на охрану и снятии с неё", "0x750", "ISO 15765-4 CAN (ATSP6) · KWP 21/3B", true, "3BA201", "3BA200"),
+        TweakSpec("eco_indicator", "Подсказка ECO на приборке", "Показывает зелёный значок ECO при экономной езде", "0x7C0", "ISO 15765-4 CAN (ATSP6) · KWP 21/3B", true, "3BC101", "3BC100"),
+        TweakSpec("ac_eco_mode", "Эко-режим кондиционера", "Кондиционер работает мягче, чтобы экономить топливо", "0x7C4", "ISO 15765-4 CAN (ATSP6) · KWP 21/3B", true, "3BD101", "3BD100"),
+        TweakSpec("rear_seatbelt_chime", "Пищалка задних ремней", "Звуковое напоминание, если сзади не пристегнулись", "0x7C0", "ISO 15765-4 CAN (ATSP6) · KWP 21/3B", true, "3BC401", "3BC400"),
+        TweakSpec("turn_signal_3", "Поворотник: 3 мигания", "Заводской режим при лёгком касании рычага", "0x750", "ISO 15765-4 CAN (ATSP6) · KWP 3B", false, "3BA503"),
+        TweakSpec("turn_signal_5", "Поворотник: 5 миганий", "Удобно для перестроения в городе — мигает 5 раз", "0x750", "ISO 15765-4 CAN (ATSP6) · KWP 3B", false, "3BA505"),
+        TweakSpec("turn_signal_7", "Поворотник: 7 миганий", "Увеличенное время сигнала при перестроении", "0x750", "ISO 15765-4 CAN (ATSP6) · KWP 3B", false, "3BA507"),
+        TweakSpec("abs_inspection", "Сервисный режим ABS", "Только для СТО: проверка тормозов и ABS на стенде", "0x7B0", "ISO 15765-4 CAN (ATSP6) · UDS 10 03", false, "31010200", requiresVLinker = false),
+        TweakSpec("atf_reset", "Сброс счётчика масла CVT", "Нажимать только после замены масла в вариаторе", "0x7E1", "ISO 15765-4 CAN (ATSP6) · UDS 31 01", false, "31010F00", requiresVLinker = false)
     )
 
     fun isVLinkerAdapter(deviceName: String?): Boolean {
