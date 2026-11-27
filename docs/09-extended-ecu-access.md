@@ -1,8 +1,8 @@
-# 09 — Расширенный доступ к ECU: CVT, гибрид, ABS, TPMS, кузов (данные из реверса Car Scanner)
+# 09 — Расширенный доступ к ECU: CVT, гибрид, ABS, TPMS, кузов (данные из реверса iOS OBD-приложение)
 
 Ответы на вопросы «смогу ли смотреть с хорошим донглом» и «какие команды есть».
-Источник: реверс Car Scanner ELM OBD2 v2.2.52 (`../rea/`), профили Toyota ≤2020
-(`../rea/extracted/toyota_all/`, каталог: `../rea/docs/toyota_pids_catalog.md`).
+Источник: реверс iOS OBD-приложение ELM OBD2 v2.2.52 (`docs//`), профили Toyota ≤2020
+(`docs//extracted/toyota_all/`, каталог: `docs//docs/toyota_pids_catalog.md`).
 
 **Обозначения полей** (см. `rea/docs/toyota_units_formulas.md`):
 `CMD` — hex-запрос; `HDR` — заголовок запроса (ATSH); `SBI` — смещение первого байта данных
@@ -21,9 +21,9 @@
 | `ATH1` | различать ECU по ответам `7E8/7E9/7B8/758…` | да | любой |
 
 **Вывод:** почти всё из списка ниже — **чтение данных**, и с хорошим донглом (STN-чип,
-полный ATSH) оно заработает: команды в Car Scanner есть и они стандартные.
+полный ATSH) оно заработает: команды в iOS OBD-приложение есть и они стандартные.
 Не заработает через OBD-сканер: кастомизация кузова (зуммер/поворотники) и прописка
-TPMS-ID — это сервисные функции, их дают Techstream / Carista (см. §4, §6).
+TPMS-ID — это сервисные функции, их дают Techstream / ECU Tweaker (см. §4, §6).
 
 Проверка донгла перед покупкой: `ATSH7E0` → `010C` должен ответить `7E8 …` (а не `NO DATA`);
 `ATSH7B0` → `2103` — должны пойти скорости колёс.
@@ -49,14 +49,14 @@ TPMS-ID — это сервисные функции, их дают Techstream /
 | Старый вариант ATF | `21D9` @`7E0/7E1/7DF` | `raw−40` (DL 1, SBI 3) или `raw/256−40` (DL 2, SBI 4) | см. `rea/docs/toyota_pids_catalog.md` §C — 55 вариантов |
 | Старый вариант ATF (Mode 01) | `01B4` | `raw/256−40` (DL 2) или `raw−40` (DL 1) | |
 
-**Точное давление первичного/вторичного контуров как отдельные PID** в Car Scanner нет:
+**Точное давление первичного/вторичного контуров как отдельные PID** в iOS OBD-приложение нет:
 есть `2182` (линейное давление) и `22162A` (усилие зажима ремня — функция давления вторичного).
 **Ток соленоидов** — только статусы (`2185`); ток доступен в Techstream (Data List / Active Test).
 
 ### Ошибки по коробке, которые НЕ зажигают Check Engine
 Читаются **отдельно от ECM**: запрос DTC с заголовка TCM (`ATSH701` или `7E1`), команды
 `03`/`07`/`0A` или UDS `1902AF`/`1902AC` (см. `rea/docs/toyota_dtc_protocol.md`).
-В базе Car Scanner (`rea/extracted/dtc_json/dtcdb.TOYOTA.db.json`) — полный набор:
+В базе iOS OBD-приложение (`rea/extracted/dtc_json/dtcdb.TOYOTA.db.json`) — полный набор:
 `P07xx` (соленоиды, давление, датчики), `P17xx` (CVT/реверс/скорости), `P2769/2770` (SL),
 `P0840-P0849` (датчики давления), `P0894` (проскальзывание), `P0897` (деградация ATF).
 Расшифровки: `rea/docs/toyota_dtc_codes.md`.
@@ -116,33 +116,33 @@ TPMS-ID — это сервисные функции, их дают Techstream /
 
 **Ошибки ABS/VSC/TRC/EPB** — чтение/сброс DTC с `ATSH7B0` (команды `03/07/0A`, UDS `1902xx`,
 сброс `14FFFFFF`), коды `C1xxx` в `toyota_dtc_codes.md` (102 C-кода в базе).
-**Сервисный режим суппортов (EPB)** — команд в REA **нет**: это сервисная функция
-(Techstream «Parking Brake Pad Replacement» или Carista «EPB reset»).
+**Сервисный режим суппортов (EPB)** — команд в OBD-протокол **нет**: это сервисная функция
+(Techstream «Parking Brake Pad Replacement» или ECU Tweaker «EPB reset»).
 
 ---
 
 ## 4. Main Body ECU (`750`) и кастомизация
 
-**Что есть в REA (чтение):** адресация `750` работает через расширенный адрес:
+**Что есть в OBD-протокол (чтение):** адресация `750` работает через расширенный адрес:
 ```
-ATCEA2A;ATTA2A;ATFCSH750;ATFCSD2A300000;ATFCSM1;   (BCM из профилей Car Scanner)
+ATCEA2A;ATTA2A;ATFCSH750;ATFCSD2A300000;ATFCSM1;   (BCM из профилей iOS OBD-приложение)
 ```
 Данные с `750`: TPMS (§5), датчики кузова.
 
 **Кастомизации (зуммер ремней, 3/5/7 миганий поворотника, чувствительность света,
-автоблокировка) — в Car Scanner НЕТ**: модуль Coding есть только для VAG MQB / Hyundai-Kia /
+автоблокировка) — в iOS OBD-приложение НЕТ**: модуль Coding есть только для VAG MQB / Hyundai-Kia /
 Renault. Toyota-кастомизация выполняется:
 - **Techstream** (TIS) — полный список «Customization»: Driver/Passenger/Rear Seatbelt Warning
   Buzzer ON/OFF, Lane Change Flashing Times (OFF,3-7), Flasher Sound Volume (S/M/L),
   ODO Display Time, Auto Lock и др. (EUC: Combination Meter Assembly и др.)
-- **Carista** — для C-HR поддерживается (1-е поколение в списке): seat belt warning ding,
+- **ECU Tweaker** — для C-HR поддерживается (1-е поколение в списке): seat belt warning ding,
   lane-change auto-flasher count 3-7, turn signal click volume, coming-home lights duration,
   auto fold mirrors, open windows via remote и др. (~60-111 функций)
 - Оба варианта работают через тот же OBD-порт, но используют сервисные (UDS `2E`/`31`) команды,
-  которых в Car Scanner для Toyota нет.
+  которых в iOS OBD-приложение для Toyota нет.
 
 **DCM (блок телематики, «Start emergency call testing», красный индикатор):**
-- В REA команд **нет** — это не диагностика, а конфигурация телематики.
+- В OBD-протокол команд **нет** — это не диагностика, а конфигурация телематики.
 - Решения из практики владельцев JDM C-HR:
   1. **Techstream** — DCM Activation/Deactivation (дилерская процедура; T-SB-0019-19).
   2. **Физически** — разъём/предохранитель DCM (за бардачком/потолком), либо антенна.
@@ -164,14 +164,14 @@ Renault. Toyota-кастомизация выполняется:
 
 Запросы идут с расширенным адресом (`ATCEA2A;ATTA2A;ATFCSH750;…`). Это ровно то, чего
 нет на приборке C-HR (там только жёлтая лампа) — **цифры по колёсам будут**.
-**Прописка ID новых датчиков** — в REA нет; сервисная функция (Carista «TPMS Registration»,
+**Прописка ID новых датчиков** — в OBD-протокол нет; сервисная функция (ECU Tweaker «TPMS Registration»,
 Techstream «TPMS ID Registration»).
 
 ---
 
 ## 6. SRS (`780`), климат (`7C4`), EPS (`7A1`)
 
-| Система | Что есть в REA | Команды |
+| Система | Что есть в OBD-протокол | Команды |
 |---|---|---|
 | **SRS** `780` | PID нет; **чтение/сброс ошибок — да** | `ATSH780` → `03`/`1902AF`; коды `B0xxx` (109 шт. в базе) |
 | **Климат** `7C4` | **давление фреона** `2153` Regulator Pressure (MPaG); **темп. испарителя** `214B` / target `214C` (`raw/100−327.68`); **заслонки** `2143`/`2144` (Air Outlet / Air Inlet Damper Pulse); вентилятор `213C`; солнечный датчик `2124`; ОЖ `2126`; наружная t° `213D` | Mode 21, HDR `7C4` |
@@ -179,9 +179,9 @@ Techstream «TPMS ID Registration»).
 
 ---
 
-## 7. Сводка: что с хорошим донглом, что через Techstream/Carista
+## 7. Сводка: что с хорошим донглом, что через Techstream/ECU Tweaker
 
-| Функция | Хороший донгл + команды из REA | Techstream / Carista |
+| Функция | Хороший донгл + команды из OBD-протокол | Techstream / ECU Tweaker |
 |---|---|---|
 | ATF-температура CVT (уровень/замена) | ✅ `221627/221628`, `21D9`, `01B4` | не нужно |
 | Давление масла A/T, усилие зажима ремня | ✅ `2182`, `22162A` (частично) | полные Data List |
@@ -198,14 +198,14 @@ Techstream «TPMS ID Registration»).
 | Ошибки SRS | ✅ DTC с `780` | ✅ |
 | Давление фреона, испаритель, заслонки | ✅ `2153/214B/2143/2144` | ✅ |
 | Ток ЭУР, калибровка угла руля | ❌ | ✅ |
-| Кастомизация (зуммер, поворотники, свет) | ❌ | ✅ (Techstream Customization / Carista) |
+| Кастомизация (зуммер, поворотники, свет) | ❌ | ✅ (Techstream Customization / ECU Tweaker) |
 | DCM отключение | ❌ | ✅ (Techstream DCM Deactivation или физически) |
 
 ---
 
 ## 8. TSS2 / BSM / радары — что есть в реверсе и как проверить наличие блоков
 
-Из таблиц ECU Car Scanner (`ToyotaCANECU.BuildList`, `ToyotaCANGatewayECU.BuildList`)
+Из таблиц ECU iOS OBD-приложение (`ToyotaCANECU.BuildList`, `ToyotaCANGatewayECU.BuildList`)
 видно, что BSM и вся обвеска Safety Sense — **штатные диагностируемые узлы** этой платформы.
 
 ### 9.1 Прямые CAN-адреса (11-bit)
@@ -238,7 +238,7 @@ Techstream «TPMS ID Registration»).
 | `67` | Parking sensors (парктроники) |
 | `2C` | Electric parking brake |
 
-### 8.3 Схема запроса (из кода Car Scanner, строки 218952+)
+### 8.3 Схема запроса (из кода iOS OBD-приложение, строки 218952+)
 
 ```
 ATAL
@@ -262,9 +262,9 @@ ATFCSM1
    Есть ответ — блок физически есть; `NO DATA` — нет (значит, BSM придётся ставить).
    То же для `6D` (камера TSS) и `781/791` (радар/PCS).
 2. **Ошибки BSM/радаров** читаются так же, как ABS/SRS: `13FF00` через gateway —
-   коды `B2xxx/U0xxx` (в базе Car Scanner BSM-специфичных кодов нет — база общая).
+   коды `B2xxx/U0xxx` (в базе iOS OBD-приложение BSM-специфичных кодов нет — база общая).
 3. **Граница реверса:** живые сигналы «машина в слепой зоне» — это **broadcast-кадры на
-   CAN**, их Car Scanner не опрашивает (PID для BSM нет). Их читает openpilot через
+   CAN**, их iOS OBD-приложение не опрашивает (PID для BSM нет). Их читает openpilot через
    comma-харнесс напрямую с шины — для этого OBD-команды не нужны. Реверс подтверждает
    только архитектуру: BSM-блоки адресуемы и диагностируемы.
 4. **Про TSS2 у вас (NGX10 2020):** комплектация JDM разная — TSS2 с радаром шёл по
@@ -273,16 +273,16 @@ ATFCSM1
 
 ## 9. Артефакты (для углубления)
 
-- `../rea/docs/toyota_pids_catalog.md` — полный каталог PID ≤2020 (CMD/HDR/SBI/DL/формулы);
-- `../rea/extracted/toyota_pids_catalog.json` — то же машиночитаемо (7557 PID);
-- `../rea/docs/toyota_dtc_protocol.md`, `../rea/docs/toyota_dtc_codes.md` — чтение/расшифровка DTC;
-- `../rea/docs/toyota_commands.md` — init-последовательности, ATSH/ATCEA, обход клонов;
-- `../rea/docs/toyota_units_formulas.md` — семантика полей и 100 формул Mode 01.
+- `docs//docs/toyota_pids_catalog.md` — полный каталог PID ≤2020 (CMD/HDR/SBI/DL/формулы);
+- `docs//extracted/toyota_pids_catalog.json` — то же машиночитаемо (7557 PID);
+- `docs//docs/toyota_dtc_protocol.md`, `docs//docs/toyota_dtc_codes.md` — чтение/расшифровка DTC;
+- `docs//docs/toyota_commands.md` — init-последовательности, ATSH/ATCEA, обход клонов;
+- `docs//docs/toyota_units_formulas.md` — семантика полей и 100 формул Mode 01.
 
 ## 10. Выбор адаптера: PIC18F25K80 (DIY ELM 1.5) vs vLinker MC+ / FD+
 
 **Вердикт: для этой машины (C-HR 2020, классический CAN 500k, 11-bit) достаточно
-PIC18F25K80 с честной прошивкой ELM327 v1.5.** Все команды, которые Car Scanner реально
+PIC18F25K80 с честной прошивкой ELM327 v1.5.** Все команды, которые iOS OBD-приложение реально
 использует для функций из §1–§8, входят в стандарт ELM327 1.5. STN-чип (vLinker) даёт
 скорость и удобство, но не открывает новых функций. CAN FD (вариант FD+) на этой машине
 не нужен — FD появился на Toyota с ~2022+.
@@ -299,10 +299,10 @@ PIC18F25K80 с честной прошивкой ELM327 v1.5.** Все кома�
 | VT-команды (vlinker) | `VTI`, `VTFCTRA`, `VTDR` | ❌ (не нужны) | ✅ |
 | CAN FD | — | ❌ | только FD+ |
 
-Важно из кода (строка 170514): **Car Scanner шлёт `ATCEA`/`ATTA` как есть на обычный ELM**
+Важно из кода (строка 170514): **iOS OBD-приложение шлёт `ATCEA`/`ATTA` как есть на обычный ELM**
 (трансляция в `STCAF` включается только при STN). То есть gateway-функции рассчитаны на
 честный ELM 1.5. Даже если прошивка ATCEA не знает — есть raw-обход прямо из кода
-Car Scanner (строка 154053): `ATCAF0;ATSH750` + кадр `41 30 00 10 00 00 00 00`
+iOS OBD-приложение (строка 154053): `ATCAF0;ATSH750` + кадр `41 30 00 10 00 00 00 00`
 (адрес `41` + ISO-TP) — BSM/TPMS доступны и так.
 
 ### 10.2 Чек-лист проверки PIC-адаптера (прогнать до покупки vLinker)

@@ -49,5 +49,5 @@ Guidelines for autonomous agents modifying the `chr/android` codebase.
 | `service/ObdLoggingService.kt` | Android Foreground Service, lifecycle, and CSV streaming |
 | `ui/` | Jetpack Compose dark automotive dashboard |
 
-| `core/tweaks/CaristaTweaks.kt` | Carista-derived ECU tweaks (`0x750`/`0x7C0`/`0x7C4`/`0x7B0`/`0x7E1`) and vLinker gating |
+| `core/tweaks/ECU TweakerTweaks.kt` | Toyota CAN ECU tweaks (`0x750`/`0x7C0`/`0x7C4`/`0x7B0`/`0x7E1`) and vLinker gating |
 | `ui/TelemetryCharts.kt` | Mobile-friendly Jetpack Compose Canvas live telemetry charts |

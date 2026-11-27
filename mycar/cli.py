@@ -189,7 +189,7 @@ def doctor():
         "  hang the dongle until it is unplugged and replugged (details: docs/04)\n"
         "- Bluetooth permission is granted to the terminal app (Terminal/iTerm/VS Code),\n"
         "  not to python — allow it in System Settings -> Privacy & Security -> Bluetooth\n"
-        "- The clone serves ONE client: close CarScanner / release the iPhone first\n"
+        "- The clone serves ONE client: close iOS OBD-приложение / release the iPhone first\n"
         "- If the link is silent: unplug+replug the adapter (BT cycle rarely helps)\n"
         "- WiFi adapters: use --port socket://<ip>:35000\n"
         "- Quick transport test: .venv/bin/python ../obdii_test/ble_elm.py\n"

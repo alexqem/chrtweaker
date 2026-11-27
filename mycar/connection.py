@@ -1,7 +1,7 @@
 """Connection factory: BLE ELM327 (preferred) or raw serial, or simulator.
 
 Cheap clones have a broken macOS SPP profile — macOS connects the RFCOMM
-channel and the dongle then stops serving anyone. CarScanner on iOS uses
+channel and the dongle then stops serving anyone. iOS OBD-приложение on iOS uses
 the BLE side (service 0000fff0), which is rock solid. So: BLE first, raw
 serial only if a --port is explicitly given, socket:// for WiFi adapters.
 """

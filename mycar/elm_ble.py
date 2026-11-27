@@ -1,4 +1,4 @@
-"""BLE ELM327 driver (bleak) — the transport CarScanner uses on iOS.
+"""BLE ELM327 driver (bleak) — the transport iOS OBD-приложение uses on iOS.
 
 Cheap clones have a broken macOS SPP profile but a perfectly healthy BLE
 side (service 0000fff0, characteristic fff1 = write + notify). This class
