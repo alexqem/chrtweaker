@@ -72,19 +72,28 @@ object EcuTweaks {
             return TweakResult(true, "${spec.title}: выполнено", logLine)
         }
 
-        return try {
-            sendFn(header)
-            val raw = sendFn(cmd).trim()
-            val ok = !raw.contains("7F", ignoreCase = true) &&
-                !raw.contains("ERROR", ignoreCase = true) &&
-                !raw.contains("NO DATA", ignoreCase = true) &&
-                !raw.contains("STOPPED", ignoreCase = true) &&
-                !raw.contains("?")
-            val logLine = "[$ts] ${if (ok) "OK" else "FAIL"} | ${spec.protocol} | $header | TX: $cmd | RX: $raw"
-            TweakResult(ok, if (ok) "${spec.title}: выполнено" else "${spec.title}: ошибка ($raw)", logLine)
-        } catch (e: Exception) {
-            val logLine = "[$ts] EXC | ${spec.protocol} | $header | TX: $cmd | ERR: ${e.message}"
-            TweakResult(false, "${spec.title}: ошибка (${e.message})", logLine)
+        var lastErr: Exception? = null
+        repeat(2) { attempt ->
+            try {
+                sendFn(header)
+                val raw = sendFn(cmd).trim()
+                val ok = raw.isNotEmpty() &&
+                    !raw.contains("7F", ignoreCase = true) &&
+                    !raw.contains("ERROR", ignoreCase = true) &&
+                    !raw.contains("NO DATA", ignoreCase = true) &&
+                    !raw.contains("STOPPED", ignoreCase = true) &&
+                    !raw.contains("?")
+                if (ok || attempt == 1) {
+                    val logLine = "[$ts] ${if (ok) "OK" else "FAIL"} | ${spec.protocol} | $header | TX: $cmd | RX: $raw"
+                    return TweakResult(ok, if (ok) "${spec.title}: выполнено" else "${spec.title}: ошибка ($raw)", logLine)
+                }
+            } catch (e: Exception) {
+                lastErr = e
+            }
+            kotlinx.coroutines.delay(250)
         }
+        val msg = lastErr?.message ?: "Нет ответа от ECU"
+        val logLine = "[$ts] EXC | ${spec.protocol} | $header | TX: $cmd | ERR: $msg"
+        return TweakResult(false, "${spec.title}: ошибка ($msg)", logLine)
     }
 }

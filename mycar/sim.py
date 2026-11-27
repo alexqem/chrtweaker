@@ -85,9 +85,12 @@ class SimConnection:
 
         Emulates a JDM-ish car: Mode-01 answers (including the 01B4 ATF
         extension), Mode 09 gives identity; Mode-21 stays silent (as on the
-        real clone). Everything else: NO DATA.
+        real clone). KWP 3B writes get a positive response (service + 0x40).
+        Everything else: NO DATA.
         """
         cmd = cmd.upper()
+        if cmd.startswith("3B"):
+            return "7B " + cmd[2:]  # positive response to WriteDataByLocalId
         if cmd == "01B4":
             c = round(min(5 + self._sim_min() * 3.5, 65), 1)  # CVT warms slower
             raw = int(round((c + 40) * 256))                  # 01B4 v.15: /256-40

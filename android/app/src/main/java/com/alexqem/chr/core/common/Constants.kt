@@ -5,7 +5,13 @@ import java.util.UUID
 object BleConstants {
     val SERVICE_UUID: UUID = UUID.fromString("0000fff0-0000-1000-8000-00805f9b34fb")
     val CHAR_UUID: UUID = UUID.fromString("0000fff1-0000-1000-8000-00805f9b34fb")
+    val WRITE_CHAR_UUID: UUID = UUID.fromString("0000fff2-0000-1000-8000-00805f9b34fb")
     val CCCD_UUID: UUID = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
+
+    const val GENERIC_ACCESS_PREFIX = "00001800"
+    const val GENERIC_ATTRIBUTE_PREFIX = "00001801"
+    const val CONNECT_RETRY_COUNT = 3
+    const val CONNECT_RETRY_DELAY_MS = 600L
 
     val TARGET_UUID_FRAGMENTS = listOf("fff0", "18f0")
     val ADAPTER_NAME_KEYWORDS = listOf(

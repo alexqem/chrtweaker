@@ -57,7 +57,9 @@ data class LiveSessionState(
     val warmUpRateCPerMin: Double? = null,
     val rowCount: Int = 0,
     val statusMessage: String = "Idle",
-    val error: String? = null
+    val error: String? = null,
+    val adapterInfo: String? = null,
+    val isVLinkerCapable: Boolean = false
 )
 
 class ObdLoggingService : Service() {
@@ -184,6 +186,17 @@ class ObdLoggingService : Service() {
             // Step 2: Gentle AT init
             _sessionState.value = _sessionState.value.copy(statusMessage = "Initializing ELM protocol...")
             ElmProtocol.initAdapter(conn)
+
+            val atiResp = runCatching { conn.send("ATI", timeoutMs = ElmConstants.TIMEOUT_QUICK_MS) }.getOrNull()
+            val vtiResp = runCatching { conn.send("VTI", timeoutMs = ElmConstants.TIMEOUT_QUICK_MS) }.getOrNull()
+            val combinedInfo = listOfNotNull(atiResp, vtiResp).joinToString(" | ").trim()
+            val capable = combinedInfo.contains("STN", ignoreCase = true) ||
+                combinedInfo.contains("vLinker", ignoreCase = true) ||
+                combinedInfo.contains("Vgate", ignoreCase = true)
+            _sessionState.value = _sessionState.value.copy(
+                adapterInfo = combinedInfo.ifBlank { null },
+                isVLinkerCapable = capable
+            )
 
             // Step 3: Verify car answers
             _sessionState.value = _sessionState.value.copy(statusMessage = "Verifying car connection...")

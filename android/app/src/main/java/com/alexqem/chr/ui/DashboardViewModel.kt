@@ -195,7 +195,8 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun isVLinkerConnected(): Boolean =
-        com.alexqem.chr.core.tweaks.EcuTweaks.isVLinkerAdapter(_selectedDevice.value?.name)
+        _sessionState.value.isVLinkerCapable ||
+            com.alexqem.chr.core.tweaks.EcuTweaks.isVLinkerAdapter(_selectedDevice.value?.name)
 
     fun runTweak(spec: com.alexqem.chr.core.tweaks.TweakSpec, enabled: Boolean) {
         if (_tweakStatus.value is TweakUiState.Pending) return

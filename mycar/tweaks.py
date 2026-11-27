@@ -125,6 +125,16 @@ TWEAKS: list[TweakSpec] = [
         write_on_cmd="3BA503",
     ),
     TweakSpec(
+        id="turn_signal_4",
+        title="Поворотник: 4 мигания",
+        description="4 мигания при лёгком касании рычага",
+        ecu="0x750",
+        protocol="ISO 15765-4 CAN (ATSP6) · KWP 3B",
+        kind="button",
+        read_cmd=None,
+        write_on_cmd="3BA504",
+    ),
+    TweakSpec(
         id="turn_signal_5",
         title="Поворотник: 5 миганий",
         description="Удобно для перестроения в городе — мигает 5 раз",
@@ -135,6 +145,16 @@ TWEAKS: list[TweakSpec] = [
         write_on_cmd="3BA505",
     ),
     TweakSpec(
+        id="turn_signal_6",
+        title="Поворотник: 6 миганий",
+        description="6 миганий при лёгком касании рычага",
+        ecu="0x750",
+        protocol="ISO 15765-4 CAN (ATSP6) · KWP 3B",
+        kind="button",
+        read_cmd=None,
+        write_on_cmd="3BA506",
+    ),
+    TweakSpec(
         id="turn_signal_7",
         title="Поворотник: 7 миганий",
         description="Увеличенное время сигнала при перестроении",
@@ -143,6 +163,26 @@ TWEAKS: list[TweakSpec] = [
         kind="button",
         read_cmd=None,
         write_on_cmd="3BA507",
+    ),
+    TweakSpec(
+        id="turn_signal_9",
+        title="Поворотник: 9 миганий",
+        description="9 миганий при лёгком касании рычага",
+        ecu="0x750",
+        protocol="ISO 15765-4 CAN (ATSP6) · KWP 3B",
+        kind="button",
+        read_cmd=None,
+        write_on_cmd="3BA509",
+    ),
+    TweakSpec(
+        id="turn_signal_11",
+        title="Поворотник: 11 миганий",
+        description="Максимум (11 миганий) при лёгком касании рычага",
+        ecu="0x750",
+        protocol="ISO 15765-4 CAN (ATSP6) · KWP 3B",
+        kind="button",
+        read_cmd=None,
+        write_on_cmd="3BA50B",
     ),
     TweakSpec(
         id="abs_inspection",
@@ -209,34 +249,41 @@ def execute_tweak(
             "log_line": log_line,
         }
 
-    try:
-        elm_send_fn(header_cmd)
-        raw_resp = elm_send_fn(cmd).strip()
-        is_err = any(m in raw_resp.upper() for m in ("7F", "ERROR", "NO DATA", "UNABLE", "STOPPED", "?"))
-        ok = not is_err
-        log_line = (
-            f"[{ts}] {'OK' if ok else 'FAIL'} | {spec.protocol} | {header_cmd} | "
-            f"TX: {cmd} | RX: {raw_resp}"
-        )
-        return {
-            "ok": ok,
-            "tweak_id": spec.id,
-            "ecu": spec.ecu,
-            "protocol": spec.protocol,
-            "command": f"{header_cmd} ; {cmd}",
-            "response": raw_resp,
-            "message": f"{spec.title}: {'succeeded' if ok else 'rejected (' + raw_resp + ')'}",
-            "log_line": log_line,
-        }
-    except Exception as exc:
-        log_line = f"[{ts}] EXC | {spec.protocol} | {header_cmd} | TX: {cmd} | ERR: {exc}"
-        return {
-            "ok": False,
-            "tweak_id": spec.id,
-            "ecu": spec.ecu,
-            "protocol": spec.protocol,
-            "command": f"{header_cmd} ; {cmd}",
-            "response": str(exc),
-            "message": f"{spec.title}: error ({exc})",
-            "log_line": log_line,
-        }
+    last_exc = None
+    for attempt in range(2):
+        try:
+            elm_send_fn(header_cmd)
+            raw_resp = elm_send_fn(cmd).strip()
+            is_err = any(m in raw_resp.upper() for m in ("7F", "ERROR", "NO DATA", "UNABLE", "STOPPED", "?"))
+            ok = bool(raw_resp) and not is_err  # empty reply to a CAN write is a failure, not success
+            if ok or attempt == 1:
+                log_line = (
+                    f"[{ts}] {'OK' if ok else 'FAIL'} | {spec.protocol} | {header_cmd} | "
+                    f"TX: {cmd} | RX: {raw_resp}"
+                )
+                return {
+                    "ok": ok,
+                    "tweak_id": spec.id,
+                    "ecu": spec.ecu,
+                    "protocol": spec.protocol,
+                    "command": f"{header_cmd} ; {cmd}",
+                    "response": raw_resp,
+                    "message": f"{spec.title}: {'выполнено' if ok else 'ошибка (' + raw_resp + ')'}",
+                    "log_line": log_line,
+                }
+        except Exception as exc:
+            last_exc = exc
+        import time
+        time.sleep(0.25)
+
+    log_line = f"[{ts}] EXC | {spec.protocol} | {header_cmd} | TX: {cmd} | ERR: {last_exc}"
+    return {
+        "ok": False,
+        "tweak_id": spec.id,
+        "ecu": spec.ecu,
+        "protocol": spec.protocol,
+        "command": f"{header_cmd} ; {cmd}",
+        "response": str(last_exc),
+        "message": f"{spec.title}: error ({last_exc})",
+        "log_line": log_line,
+    }

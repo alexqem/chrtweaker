@@ -408,7 +408,7 @@ fun EcuTweaksTab(
 @Composable
 fun HudTab(state: LiveSessionState) {
     val s = state.lastSample
-    var isMirrored by remember { mutableStateOf(false) }
+    var isMirrored by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
     val view = androidx.compose.ui.platform.LocalView.current
     DisposableEffect(view) {
         view.keepScreenOn = true
@@ -432,7 +432,7 @@ fun HudTab(state: LiveSessionState) {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Экран не гаснет (KeepScreenOn)", fontSize = 11.sp, color = TextSecondary)
+            Text("Экран не гаснет, пока открыт HUD", fontSize = 11.sp, color = TextSecondary)
             Button(
                 onClick = { isMirrored = !isMirrored },
                 colors = ButtonDefaults.buttonColors(

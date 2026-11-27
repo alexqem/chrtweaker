@@ -317,8 +317,8 @@
 
   <div id="tab-hud" style="display:none">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-      <span style="font-size:11px;color:var(--muted-foreground);">Режим лобового стекла (WakeLock)</span>
-      <button class="tweak-btn" id="hud-mirror-btn" onclick="toggleHudMirror()">Зеркало (HUD)</button>
+      <span style="font-size:11px;color:var(--muted-foreground);">Экран не гаснет, пока открыт HUD</span>
+      <button class="tab-btn" id="hud-mirror-btn" onclick="toggleHudMirror()">Зеркало (HUD)</button>
     </div>
     <div class="hud-grid" id="hud-grid">
       <div class="hud-card"><div class="hud-label">Скорость</div><div class="hud-val" style="color:var(--maf)" id="hud-speed">—<span class="hud-unit">км/ч</span></div></div>
@@ -328,6 +328,7 @@
       <div class="hud-card"><div class="hud-label">STFT</div><div class="hud-val" style="color:var(--stft)" id="hud-stft">—<span class="hud-unit">%</span></div></div>
       <div class="hud-card"><div class="hud-label">LTFT</div><div class="hud-val" style="color:var(--ltft)" id="hud-ltft">—<span class="hud-unit">%</span></div></div>
       <div class="hud-card"><div class="hud-label">АКБ</div><div class="hud-val" style="color:var(--volt)" id="hud-volt">—<span class="hud-unit">V</span></div></div>
+      <div class="hud-card"><div class="hud-label">CVT</div><div class="hud-val" style="color:var(--cat)" id="hud-cvt">—<span class="hud-unit">°C</span></div></div>
     </div>
   </div>
 
@@ -711,7 +712,7 @@ function connect() {
       added = true;
     } else if (msg.type === 'samples') {
       if (msg.rows && msg.rows.length) updateHud(msg.rows[msg.rows.length - 1]);
-  for (const row of msg.rows) {
+      for (const row of msg.rows) {
         if (ingest(row)) added = true;
       }
     }
@@ -777,30 +778,52 @@ async function runTweak(id, enabled) {
   }
 }
 
+/* HUD: mirror + screen wake lock (released on toggle-off, re-acquired on tab return) */
+let hudMirrorOn = false;
+let hudWakeLock = null;
+async function hudKeepScreenOn(on) {
+  try {
+    if (on && navigator.wakeLock) hudWakeLock = await navigator.wakeLock.request('screen');
+    else { hudWakeLock?.release(); hudWakeLock = null; }
+  } catch (_) { hudWakeLock = null; }
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && hudMirrorOn) hudKeepScreenOn(true);
+});
+
 function toggleHudMirror() {
+  hudMirrorOn = !hudMirrorOn;
   const g = document.getElementById('hud-grid');
   const btn = document.getElementById('hud-mirror-btn');
-  const on = g.style.transform === 'scaleX(-1)';
-  g.style.transform = on ? '' : 'scaleX(-1)';
-  btn.textContent = on ? 'Зеркало (HUD)' : 'Зеркало: ВКЛ';
-  if (!on && navigator.wakeLock) { navigator.wakeLock.request('screen').catch(() => {}); }
+  g.style.transform = hudMirrorOn ? 'scaleX(-1)' : '';
+  btn.textContent = hudMirrorOn ? 'Зеркало: ВКЛ' : 'Зеркало (HUD)';
+  hudKeepScreenOn(hudMirrorOn);
 }
 
 function updateHud(row) {
   if (!row) return;
-  const set = (id, val, unit, d = 0) => {
+  // Norm-driven bands, same constants as the telemetry tab (never hardcoded)
+  const hudCoolantColor = v => {
+    if (v == null) return 'var(--muted-foreground)';
+    if (v < TH_LO) return 'var(--coolant)';        // ещё прогревается
+    if (v <= ECT_HI) return 'var(--ok)';           // рабочий диапазон
+    return 'var(--warn)';                          // выше нормы
+  };
+  const set = (id, val, unit, d = 0, color = null) => {
     const el = document.getElementById(id);
     if (!el) return;
     const txt = (val !== null && val !== undefined && !Number.isNaN(Number(val))) ? Number(val).toFixed(d) : '—';
     el.innerHTML = `${txt}<span class="hud-unit">${unit}</span>`;
+    if (color) el.style.color = color;
   };
   set('hud-speed', row.speed, 'км/ч', 0);
   set('hud-rpm', row.rpm, 'RPM', 0);
-  set('hud-coolant', row.coolant, '°C', 1);
+  set('hud-coolant', row.coolant, '°C', 1, hudCoolantColor(row.coolant));
   set('hud-oil', row.oil_temp, '°C', 1);
   set('hud-stft', row.stft, '%', 1);
   set('hud-ltft', row.ltft, '%', 1);
   set('hud-volt', row.voltage, 'V', 2);
+  set('hud-cvt', row.cvt_temp, '°C', 1);
 }
 
 function copyTweakLog() {

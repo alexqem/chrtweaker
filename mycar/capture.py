@@ -131,6 +131,8 @@ def capture(port: str | None, simulate: bool, max_minutes: float, sim_time_scale
             time.sleep(config.CONNECT_RETRY_SLEEP_S)
     else:
         raise last_err
+    if state:
+        state.elm_send_fn = conn.send  # web ECU Tweaks talk to the live ELM/sim
 
     csv_path = meta_path = meta = None  # save_session() guards on these
     aborted = None
@@ -303,6 +305,7 @@ def capture(port: str | None, simulate: bool, max_minutes: float, sim_time_scale
             auto_analyze(csv_path, log)
         conn.close()
         if state:
+            state.elm_send_fn = None  # ECU Tweaks go honest-offline after the session
             state.set_meta(finished=True, finished_at=datetime.now(timezone.utc).isoformat())
         if dash and hold:
             dash.wait(log=log)  # page stays live until the 1 h TTL frees the port

@@ -34,7 +34,7 @@ INIT_SEQUENCE = (
 )
 
 # replies meaning "asked, nothing useful came back"
-NEGATIVE_MARKERS = ("UNABLE", "NO DATA", "?")
+NEGATIVE_MARKERS = ("UNABLE", "NO DATA", "?", "STOPPED", "CAN ERROR")
 
 IGNITION_HINT = "Turn the ignition ON (two presses of START without brake)."
 

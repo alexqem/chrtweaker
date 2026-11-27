@@ -32,7 +32,7 @@ class BleGattManager(
 
     private var gatt: BluetoothGatt? = null
     private var writeChar: BluetoothGattCharacteristic? = null
-    private val connectDeferred = CompletableDeferred<Boolean>()
+    private var connectDeferred = CompletableDeferred<Boolean>()
 
     private val incomingBuffer = ByteArrayOutputStream()
     private val responseChannel = Channel<String>(Channel.CONFLATED)
@@ -115,10 +115,13 @@ class BleGattManager(
     }
 
     internal fun findObdCharacteristics(g: BluetoothGatt): Pair<BluetoothGattCharacteristic?, BluetoothGattCharacteristic?> {
-        // 1. Exact FFF0 / FFF1 (or FFF2 write + FFF1 notify)
+        // 1. Exact FFF0 / FFF2 (write) + FFF1 (notify)
         g.getService(BleConstants.SERVICE_UUID)?.let { svc ->
             val fff1 = svc.getCharacteristic(BleConstants.CHAR_UUID)
-            val writable = svc.characteristics.firstOrNull { isWritable(it) && it != fff1 } ?: fff1?.takeIf { isWritable(it) }
+            val fff2 = svc.getCharacteristic(BleConstants.WRITE_CHAR_UUID)
+            val writable = fff2?.takeIf { isWritable(it) }
+                ?: svc.characteristics.firstOrNull { isWritable(it) && it != fff1 }
+                ?: fff1?.takeIf { isWritable(it) }
             val notifiable = fff1?.takeIf { isNotifiable(it) } ?: svc.characteristics.firstOrNull { isNotifiable(it) }
             if (writable != null && notifiable != null) return writable to notifiable
         }
@@ -126,7 +129,9 @@ class BleGattManager(
         // 2. Fallback: any custom service (skip 1800 Generic Access / 1801 Generic Attribute)
         for (svc in g.services) {
             val uuidStr = svc.uuid.toString().lowercase()
-            if (uuidStr.startsWith("00001800") || uuidStr.startsWith("00001801")) continue
+            if (uuidStr.startsWith(BleConstants.GENERIC_ACCESS_PREFIX) ||
+                uuidStr.startsWith(BleConstants.GENERIC_ATTRIBUTE_PREFIX)
+            ) continue
             val writable = svc.characteristics.firstOrNull { isWritable(it) }
             val notifiable = svc.characteristics.firstOrNull { isNotifiable(it) }
             if (writable != null && notifiable != null) {
@@ -161,14 +166,24 @@ class BleGattManager(
     }
 
     suspend fun connect(timeoutMs: Long = BleConstants.CONNECT_TIMEOUT_MS): Boolean {
-        gatt = device.connectGatt(context, false, gattCallback, BluetoothDevice.TRANSPORT_LE)
-        return try {
-            withTimeout(timeoutMs) {
-                connectDeferred.await()
+        repeat(BleConstants.CONNECT_RETRY_COUNT) { attempt ->
+            connectDeferred = CompletableDeferred()
+            gatt = device.connectGatt(context, false, gattCallback, BluetoothDevice.TRANSPORT_LE)
+            val ok = try {
+                withTimeout(timeoutMs) {
+                    connectDeferred.await()
+                }
+            } catch (_: Exception) {
+                false
             }
-        } catch (_: Exception) {
-            false
+            if (ok) return true
+            try { gatt?.close() } catch (_: Exception) {}
+            gatt = null
+            if (attempt < BleConstants.CONNECT_RETRY_COUNT - 1) {
+                delay(BleConstants.CONNECT_RETRY_DELAY_MS)
+            }
         }
+        return false
     }
 
     override suspend fun send(cmd: String, settleWaitMs: Long, timeoutMs: Long): String = writeMutex.withLock {

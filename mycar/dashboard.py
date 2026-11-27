@@ -79,6 +79,13 @@ def make_app(state: State) -> FastAPI:
     def post_tweak(payload: dict = Body(...)):
         tweak_id = str(payload.get("id", ""))
         enabled = bool(payload.get("enabled", True))
+        if state.elm_send_fn is None:
+            return JSONResponse({
+                "ok": False,
+                "tweak_id": tweak_id,
+                "message": "Нет активного OBD-подключения — настройки доступны во время сессии capture",
+                "log_line": "[-] OFFLINE | нет ELM-подключения, команда не отправлялась",
+            })
         return JSONResponse(tweaks.execute_tweak(tweak_id, enabled=enabled, elm_send_fn=state.elm_send_fn))
 
     @app.websocket("/ws")
