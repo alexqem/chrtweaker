@@ -78,7 +78,7 @@ android {
         checkAllWarnings = true
         showAll = true
         explainIssues = true
-        disable += listOf("GradleDependency", "NewerVersionAvailable", "ObsoleteSdkInt")
+        disable += listOf("GradleDependency", "NewerVersionAvailable", "ObsoleteSdkInt", "OldTargetApi")
     }
 }
 
