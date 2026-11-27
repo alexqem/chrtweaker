@@ -6,6 +6,7 @@ thread and shuts itself down after DASHBOARD_TTL_S so it never leaks a port.
 """
 
 import asyncio
+import json
 import threading
 import time
 import uuid
@@ -19,7 +20,13 @@ from fastapi.responses import HTMLResponse
 from mycar import config, sensors
 
 DASHBOARD_TTL_S = 3600  # hard lifetime: 1 hour, then the port is freed
-PAGE = Path(__file__).with_name("dashboard.html").read_text(encoding="utf-8")
+
+# The page is a self-contained bundle (HTML + CSS + JS); norms are the only
+# thing it cannot know, so they are injected from mycar/config.py — the single
+# source of truth. No norm number is ever hardcoded in the page.
+_TEMPLATE = Path(__file__).with_name("dashboard.html").read_text(encoding="utf-8")
+assert "__NORMS_JSON__" in _TEMPLATE, "dashboard.html lost its __NORMS_JSON__ placeholder"
+PAGE = _TEMPLATE.replace("__NORMS_JSON__", json.dumps(config.NORMS))
 
 
 class State:
