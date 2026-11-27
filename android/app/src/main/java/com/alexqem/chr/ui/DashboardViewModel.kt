@@ -61,8 +61,11 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     private val _sampleHistory = MutableStateFlow<List<com.alexqem.chr.core.model.SensorSample>>(emptyList())
     val sampleHistory: StateFlow<List<com.alexqem.chr.core.model.SensorSample>> = _sampleHistory.asStateFlow()
 
-    private val _tweakStatus = MutableStateFlow<Pair<Boolean, String>?>(null)
-    val tweakStatus: StateFlow<Pair<Boolean, String>?> = _tweakStatus.asStateFlow()
+    private val _tweakStatus = MutableStateFlow<TweakUiState?>(null)
+    val tweakStatus: StateFlow<TweakUiState?> = _tweakStatus.asStateFlow()
+
+    private val _tweakStates = MutableStateFlow<Map<String, Boolean>>(emptyMap())
+    val tweakStates: StateFlow<Map<String, Boolean>> = _tweakStates.asStateFlow()
 
     private val _tweakLogs = MutableStateFlow<List<String>>(emptyList())
     val tweakLogs: StateFlow<List<String>> = _tweakLogs.asStateFlow()
@@ -195,15 +198,32 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         com.alexqem.chr.core.tweaks.EcuTweaks.isVLinkerAdapter(_selectedDevice.value?.name)
 
     fun runTweak(spec: com.alexqem.chr.core.tweaks.TweakSpec, enabled: Boolean) {
-        _tweakStatus.value = true to "Применение: ${spec.title}..."
+        if (_tweakStatus.value is TweakUiState.Pending) return
+        _tweakStatus.value = TweakUiState.Pending("Применение: ${spec.title}...")
+        val prev = _tweakStates.value[spec.id] ?: false
+        if (spec.isSwitch) {
+            _tweakStates.value = _tweakStates.value + (spec.id to enabled)
+        }
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             val result = com.alexqem.chr.core.tweaks.EcuTweaks.execute(
                 spec = spec,
                 enabled = enabled,
                 isVLinker = isVLinkerConnected(),
-                isSim = _useSimulator.value
+                isSim = _useSimulator.value,
+                sendFn = { cmd ->
+                    val svc = loggingServiceRef?.get()
+                        ?: throw IllegalStateException("Сервис логирования не подключён")
+                    svc.sendRawCommand(cmd)
+                }
             )
-            _tweakStatus.value = result.ok to result.message
+            if (result.ok) {
+                _tweakStatus.value = TweakUiState.Success(result.message)
+            } else {
+                if (spec.isSwitch) {
+                    _tweakStates.value = _tweakStates.value + (spec.id to prev)
+                }
+                _tweakStatus.value = TweakUiState.Error(result.message)
+            }
             _tweakLogs.value = (_tweakLogs.value + result.logLine).takeLast(100)
         }
     }
@@ -218,4 +238,10 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         }
         super.onCleared()
     }
+}
+
+sealed interface TweakUiState {
+    data class Pending(val message: String) : TweakUiState
+    data class Success(val message: String) : TweakUiState
+    data class Error(val message: String) : TweakUiState
 }

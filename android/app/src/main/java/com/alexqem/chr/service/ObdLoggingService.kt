@@ -69,6 +69,7 @@ class ObdLoggingService : Service() {
     private lateinit var fileManager: SessionFileManager
     private lateinit var database: ChrDatabase
     private var wakeLock: PowerManager.WakeLock? = null
+    private var activeConnection: ElmConnection? = null
 
     private val _sessionState = MutableStateFlow(LiveSessionState())
     val sessionState: StateFlow<LiveSessionState> = _sessionState.asStateFlow()
@@ -101,6 +102,11 @@ class ObdLoggingService : Service() {
         }
         val manager = getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(channel)
+    }
+
+    suspend fun sendRawCommand(cmd: String): String {
+        val c = activeConnection ?: throw IllegalStateException("Нет активного OBD-подключения (запустите сессию)")
+        return c.send(cmd)
     }
 
     private fun buildNotification(statusText: String): Notification {
@@ -173,6 +179,7 @@ class ObdLoggingService : Service() {
                 }
                 gattManager
             }
+            activeConnection = conn
 
             // Step 2: Gentle AT init
             _sessionState.value = _sessionState.value.copy(statusMessage = "Initializing ELM protocol...")
@@ -334,6 +341,7 @@ class ObdLoggingService : Service() {
             abortReason = e.message ?: "Unknown error"
             _sessionState.value = _sessionState.value.copy(error = abortReason)
         } finally {
+            activeConnection = null
             try {
                 csvWriter?.close()
 

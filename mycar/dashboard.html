@@ -319,7 +319,7 @@
     <div class="hud-grid">
       <div class="hud-card"><div class="hud-label">Скорость</div><div class="hud-val" style="color:var(--maf)" id="hud-speed">—<span class="hud-unit">км/ч</span></div></div>
       <div class="hud-card"><div class="hud-label">Обороты</div><div class="hud-val" style="color:var(--rpm)" id="hud-rpm">—<span class="hud-unit">RPM</span></div></div>
-      <div class="hud-card"><div class="hud-label">ОЖ (82–88 °C)</div><div class="hud-val" style="color:var(--coolant)" id="hud-coolant">—<span class="hud-unit">°C</span></div></div>
+      <div class="hud-card"><div class="hud-label">ОЖ</div><div class="hud-val" style="color:var(--coolant)" id="hud-coolant">—<span class="hud-unit">°C</span></div></div>
       <div class="hud-card"><div class="hud-label">Масло</div><div class="hud-val" style="color:var(--oil)" id="hud-oil">—<span class="hud-unit">°C</span></div></div>
       <div class="hud-card"><div class="hud-label">STFT</div><div class="hud-val" style="color:var(--stft)" id="hud-stft">—<span class="hud-unit">%</span></div></div>
       <div class="hud-card"><div class="hud-label">LTFT</div><div class="hud-val" style="color:var(--ltft)" id="hud-ltft">—<span class="hud-unit">%</span></div></div>
@@ -587,6 +587,7 @@ function ingest(row) {
 function absorbSnapshot(msg) {
   cols = msg.columns;
   resetView();
+  if (msg.rows && msg.rows.length) updateHud(msg.rows[msg.rows.length - 1]);
   for (const row of msg.rows) {
     if (row.seq != null) {
       if (row.seq <= resetSeq) continue;
@@ -705,7 +706,8 @@ function connect() {
       absorbSnapshot(msg);
       added = true;
     } else if (msg.type === 'samples') {
-      for (const row of msg.rows) {
+      if (msg.rows && msg.rows.length) updateHud(msg.rows[msg.rows.length - 1]);
+  for (const row of msg.rows) {
         if (ingest(row)) added = true;
       }
     }
@@ -769,6 +771,23 @@ async function runTweak(id, enabled) {
   } catch (e) {
     showTweakBanner('err', '❌ Request failed: ' + e);
   }
+}
+
+function updateHud(row) {
+  if (!row) return;
+  const set = (id, val, unit, d = 0) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const txt = (val !== null && val !== undefined && !Number.isNaN(Number(val))) ? Number(val).toFixed(d) : '—';
+    el.innerHTML = `${txt}<span class="hud-unit">${unit}</span>`;
+  };
+  set('hud-speed', row.speed, 'км/ч', 0);
+  set('hud-rpm', row.rpm, 'RPM', 0);
+  set('hud-coolant', row.coolant, '°C', 1);
+  set('hud-oil', row.oil_temp, '°C', 1);
+  set('hud-stft', row.stft, '%', 1);
+  set('hud-ltft', row.ltft, '%', 1);
+  set('hud-volt', row.voltage, 'V', 2);
 }
 
 function copyTweakLog() {

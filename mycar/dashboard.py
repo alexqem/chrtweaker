@@ -46,6 +46,7 @@ class State:
         self._meta: dict = {}
         self._seq = 0
         self.run_id = uuid.uuid4().hex[:8]  # identifies THIS capture run; the
+        self.elm_send_fn = None
         # client resets its seq bookkeeping when it changes (new session on the
         # same port restarts seq at 1 and must not be deduped against the old)
 
@@ -78,7 +79,7 @@ def make_app(state: State) -> FastAPI:
     def post_tweak(payload: dict = Body(...)):
         tweak_id = str(payload.get("id", ""))
         enabled = bool(payload.get("enabled", True))
-        return JSONResponse(tweaks.execute_tweak(tweak_id, enabled=enabled))
+        return JSONResponse(tweaks.execute_tweak(tweak_id, enabled=enabled, elm_send_fn=state.elm_send_fn))
 
     @app.websocket("/ws")
     async def ws(sock: WebSocket):

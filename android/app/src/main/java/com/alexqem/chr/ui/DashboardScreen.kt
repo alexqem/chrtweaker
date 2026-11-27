@@ -45,6 +45,7 @@ fun DashboardScreen(
     val exportStatus by viewModel.exportStatus.collectAsState()
     val sampleHistory by viewModel.sampleHistory.collectAsState()
     val tweakStatus by viewModel.tweakStatus.collectAsState()
+    val tweakStates by viewModel.tweakStates.collectAsState()
     val tweakLogs by viewModel.tweakLogs.collectAsState()
 
     var showDevicePicker by remember { mutableStateOf(false) }
@@ -138,6 +139,7 @@ fun DashboardScreen(
                     isVLinker = viewModel.isVLinkerConnected(),
                     isSim = useSimulator,
                     tweakStatus = tweakStatus,
+                    tweakStates = tweakStates,
                     tweakLogs = tweakLogs,
                     onRunTweak = { spec, enabled -> viewModel.runTweak(spec, enabled) },
                     onDismissStatus = { viewModel.clearTweakStatus() }
@@ -265,13 +267,15 @@ fun DashboardScreen(
 fun EcuTweaksTab(
     isVLinker: Boolean,
     isSim: Boolean,
-    tweakStatus: Pair<Boolean, String>?,
+    tweakStatus: TweakUiState?,
+    tweakStates: Map<String, Boolean>,
     tweakLogs: List<String>,
     onRunTweak: (com.alexqem.chr.core.tweaks.TweakSpec, Boolean) -> Unit,
     onDismissStatus: () -> Unit
 ) {
     val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
     val fullAccess = isVLinker || isSim
+    val isPending = tweakStatus is TweakUiState.Pending
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         // Adapter capability banner
@@ -297,24 +301,30 @@ fun EcuTweaksTab(
 
         // Command execution status banner
         if (tweakStatus != null) {
-            val (ok, msg) = tweakStatus
+            val (bannerColor, prefix, msg) = when (tweakStatus) {
+                is TweakUiState.Pending -> Triple(CoolantBlue, "⏳ ", tweakStatus.message)
+                is TweakUiState.Success -> Triple(OkGreen, "✅ ", tweakStatus.message)
+                is TweakUiState.Error -> Triple(DangerRed, "❌ ", tweakStatus.message)
+            }
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(8.dp))
-                    .background(if (ok) OkGreen.copy(alpha = 0.15f) else DangerRed.copy(alpha = 0.15f))
-                    .border(1.dp, if (ok) OkGreen else DangerRed, RoundedCornerShape(8.dp))
+                    .background(bannerColor.copy(alpha = 0.15f))
+                    .border(1.dp, bannerColor, RoundedCornerShape(8.dp))
                     .padding(10.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = (if (ok) "OK: " else "ERR: ") + msg,
+                    text = prefix + msg,
                     fontSize = 12.sp,
-                    color = if (ok) OkGreen else DangerRed,
+                    color = bannerColor,
                     modifier = Modifier.weight(1f)
                 )
-                TextButton(onClick = onDismissStatus) { Text("OK", fontSize = 11.sp) }
+                if (tweakStatus !is TweakUiState.Pending) {
+                    TextButton(onClick = onDismissStatus) { Text("OK", fontSize = 11.sp) }
+                }
             }
         }
 
@@ -323,7 +333,7 @@ fun EcuTweaksTab(
         }
 
         visibleTweaks.forEach { spec ->
-            var checked by remember(spec.id) { mutableStateOf(false) }
+            val checked = tweakStates[spec.id] ?: false
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -342,13 +352,12 @@ fun EcuTweaksTab(
                 if (spec.isSwitch) {
                     Switch(
                         checked = checked,
-                        onCheckedChange = {
-                            checked = it
-                            onRunTweak(spec, it)
-                        }
+                        enabled = !isPending,
+                        onCheckedChange = { onRunTweak(spec, it) }
                     )
                 } else {
                     Button(
+                        enabled = !isPending,
                         onClick = { onRunTweak(spec, true) },
                         colors = ButtonDefaults.buttonColors(containerColor = CardBgElevated, contentColor = TextPrimary),
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
