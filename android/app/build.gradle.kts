@@ -78,7 +78,8 @@ android {
         checkAllWarnings = true
         showAll = true
         explainIssues = true
-        disable += listOf("GradleDependency", "NewerVersionAvailable", "ObsoleteSdkInt")
+        // OldTargetApi: AGP 8.5.2 supports up to 35 cleanly while CI runner has SDK 36
+        disable += listOf("GradleDependency", "NewerVersionAvailable", "ObsoleteSdkInt", "OldTargetApi")
     }
 }
 
